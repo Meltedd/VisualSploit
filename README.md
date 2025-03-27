@@ -20,7 +20,7 @@ Credits: [https://visualstudiomagazine.com/articles/2021/02/01/dprk-attack.aspx]
 - Select the vb/csproj file to poison
 - Select which AV evasion/persistence options you'd like to enable
 - Choose to customize a fake error message
-NOTE: Builder logs are just for show, you can enable the task delay in lines 168-218 of Form1.cs :)
+NOTE: Builder logs are just for show, you can disable the task delay in lines 168-218 of Form1.cs :)
 
 # Updates (New):
 - N/A
