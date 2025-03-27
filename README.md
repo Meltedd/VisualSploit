@@ -30,7 +30,3 @@ View Demo Video: N/A
 
 # Contact Me:
 Discord: melted3294
-
-Instagram: @m.axx_h
-
-LinkedIn: [Max Harari](https://www.linkedin.com/in/max-harari-b35231359)
