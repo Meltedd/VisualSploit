@@ -30,7 +30,7 @@ class Program
 
         var methodsOption = new Option<string?>("-m", "--methods")
         {
-            Description = "Obfuscation methods: shellcode,junk"
+            Description = "Obfuscation methods: xor,junk"
         };
 
         var encryptOption = new Option<bool>("-e", "--encrypt")
@@ -138,7 +138,7 @@ class Program
         {
             r |= p.ToLower() switch
             {
-                "shellcode" => Methods.Xor,
+                "xor" => Methods.Xor,
                 "junk" => Methods.Junk,
                 _ => throw new ArgumentException($"Unknown method: {p}")
             };

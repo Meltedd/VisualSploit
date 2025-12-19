@@ -34,7 +34,7 @@ visualsploit <project> <shellcode> [options]
 |--------|-------------|
 | `-o, --output <path>` | Output path (default: in-place with .bak) |
 | `--no-backup` | Skip backup |
-| `-m, --methods <list>` | Obfuscation: `shellcode`, `junk` |
+| `-m, --methods <list>` | Obfuscation: `xor`, `junk` |
 | `-e, --encrypt` | Encrypted payload loader |
 | `-r, --rounds <n>` | XOR rounds 1-5 (default: 3) |
 | `-s, --seed <n>` | RNG seed for reproducibility |
@@ -46,20 +46,20 @@ visualsploit <project> <shellcode> [options]
 visualsploit target.csproj payload.bin
 
 # With XOR obfuscation and junk code
-visualsploit target.csproj payload.bin -m shellcode,junk
+visualsploit target.csproj payload.bin -m xor,junk
 
 # Encrypted loader
 visualsploit target.csproj payload.bin -e
 
 # Full obfuscation with fixed seed
-visualsploit target.csproj payload.bin -m shellcode,junk -e -s 12345
+visualsploit target.csproj payload.bin -m xor,junk -e -s 12345
 ```
 
 Shellcode formats: raw binary, hex (`0xfc,0x48,...`), or plain hex (`fc4883e4f0`)
 
 ## Obfuscation
 
-**shellcode** - Multi-round XOR encryption with 32-byte keys.
+**xor** - Multi-round XOR encryption with 32-byte keys.
 
 **junk** - Injects dead code (environment reads, math ops, string transforms).
 
