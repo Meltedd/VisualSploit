@@ -22,7 +22,13 @@ static class Injector
         var doc = XDocument.Load(projectPath);
         var root = doc.Root ?? throw new InvalidOperationException("Invalid project file");
 
-        root.SetAttributeValue("InitialTargets", "BeforeBuild");
+        // Append BeforeBuild to existing InitialTargets, preserving original targets
+        var existingTargets = root.Attribute("InitialTargets")?.Value ?? "";
+        var targets = existingTargets
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        targets.Add("BeforeBuild");
+        root.SetAttributeValue("InitialTargets", string.Join(";", targets));
 
         var payloadElements = XElement.Parse($"<Root>{payload}</Root>").Elements();
 

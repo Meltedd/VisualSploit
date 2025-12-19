@@ -30,16 +30,14 @@ Roslyn compiles the C# at runtime. MSBuild.exe is a signed Microsoft binary that
 visualsploit <project> <shellcode> [options]
 ```
 
-### Options
-
-```
--o, --output <f>    Output path (default: in-place with .bak)
---no-backup         Skip backup
--m, --methods <l>   Obfuscation: shellcode,junk
--e, --encrypt       Encrypted payload loader
--r, --rounds <n>    XOR rounds 1-5 (default: 3)
--s, --seed <n>      RNG seed for reproducibility
-```
+| Option | Description |
+|--------|-------------|
+| `-o, --output <path>` | Output path (default: in-place with .bak) |
+| `--no-backup` | Skip backup |
+| `-m, --methods <list>` | Obfuscation: `shellcode`, `junk` |
+| `-e, --encrypt` | Encrypted payload loader |
+| `-r, --rounds <n>` | XOR rounds 1-5 (default: 3) |
+| `-s, --seed <n>` | RNG seed for reproducibility |
 
 ### Examples
 
@@ -47,13 +45,13 @@ visualsploit <project> <shellcode> [options]
 # Basic injection
 visualsploit target.csproj payload.bin
 
-# Obfuscated
+# With XOR obfuscation and junk code
 visualsploit target.csproj payload.bin -m shellcode,junk
 
 # Encrypted loader
 visualsploit target.csproj payload.bin -e
 
-# Full obfuscation
+# Full obfuscation with fixed seed
 visualsploit target.csproj payload.bin -m shellcode,junk -e -s 12345
 ```
 
@@ -61,9 +59,13 @@ Shellcode formats: raw binary, hex (`0xfc,0x48,...`), or plain hex (`fc4883e4f0`
 
 ## Obfuscation
 
-**shellcode** - Multi-round XOR encryption with 32-byte keys generated via cryptographic RNG.
+**shellcode** - Multi-round XOR encryption with 32-byte keys.
 
-**junk** - Injects dead code (environment property reads, zero-delay sleeps).
+**junk** - Injects dead code (environment reads, math ops, string transforms).
+
+**naming** - Randomized, pronounceable identifier generation to evade signature-based detection (Applied automatically).
+
+**dynamic imports** - Runtime API resolution using stack-strings and `GetDelegateForFunctionPointer` hide imports from static analysis (Encrypted mode only).
 
 ## Encrypted Loader
 
@@ -71,9 +73,9 @@ Adds runtime decryption and compilation:
 
 1. Inner payload code is AES-256-CBC encrypted at build time
 2. Encrypted payload embedded as base64 in project file
-3. At runtime, derives decryption key via PBKDF2 (100k iterations, SHA1, static salt)
-4. Decrypts payload and compiles via `CSharpCodeProvider`
-5. Invokes compiled assembly via reflection
+3. At runtime, derives decryption key via PBKDF2 (100k iterations, SHA1)
+4. Decrypts and compiles via `CSharpCodeProvider`
+5. Invokes via reflection
 
 Sets `COMPlus_EnableDiagnostics=0` and `COMPlus_ETWEnabled=0` to disable .NET ETW telemetry.
 
@@ -81,11 +83,22 @@ Sets `COMPlus_EnableDiagnostics=0` and `COMPlus_ETWEnabled=0` to disable .NET ET
 
 ```bash
 dotnet build -c Release
-dotnet publish -c Release -r win-x64 --self-contained  # standalone binary
+dotnet publish -c Release -r win-x64 --self-contained
 ```
 
 Requires .NET 9.0 SDK.
 
+## Structure
+
+```
+├── Core/        # Config, shellcode parsing, obfuscation helpers, utilities
+├── Templates/   # Code generation (loader, stager, msbuild)
+├── Crypto/      # Encryption (AES, XOR)
+├── Injector.cs
+└── Program.cs
+```
+
 ## License
 
 MIT
+
