@@ -12,45 +12,48 @@ internal static class MSBuild
 
         var outputPath = cfg.OutputPath ?? cfg.TargetPath;
 
-        var (doc, root) = LoadOrCreate(cfg.TargetPath);
+        var doc = LoadOrCreate(cfg.TargetPath);
+        var root = doc.Root!;
 
-        if (root.Elements().Any(e =>
-            e.Name.LocalName == "UsingTask" &&
-            e.Attribute("TaskFactory")?.Value == "RoslynCodeTaskFactory"))
-            throw new InvalidOperationException(
-                $"Target already contains a RoslynCodeTaskFactory task: {cfg.TargetPath}");
-
-        if (!cfg.NoBackup && File.Exists(outputPath))
-            File.Copy(outputPath, $"{outputPath}.bak", overwrite: true);
+        var bakPath = $"{outputPath}.bak";
+        if (!cfg.NoBackup && File.Exists(outputPath) && !File.Exists(bakPath))
+            File.Copy(outputPath, bakPath);
 
         MergeInitialTarget(root, targetName);
 
-        var payload = WrapTask(inlineCode, taskName, targetName);
-        // XDocument requires a single root; wrap and unpack to inject the two siblings.
-        foreach (var element in XElement.Parse($"<Root>{payload}</Root>").Elements())
-        {
-            foreach (var e in element.DescendantsAndSelf())
-                e.Name = root.Name.Namespace + e.Name.LocalName;
-            root.Add(element);
-        }
+        var ns = root.Name.Namespace;
+        root.Add(
+            new XElement(ns + "UsingTask",
+                new XAttribute("TaskName", taskName),
+                new XAttribute("TaskFactory", "RoslynCodeTaskFactory"),
+                new XAttribute("AssemblyFile", @"$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll"),
+                new XElement(ns + "Task",
+                    new XElement(ns + "Code",
+                        new XAttribute("Type", "Method"),
+                        new XAttribute("Language", "cs"),
+                        new XCData("\n" + inlineCode + "\n")))),
+            new XElement(ns + "Target",
+                new XAttribute("Name", targetName),
+                new XElement(ns + taskName)));
 
         SaveDocument(doc, outputPath);
     }
 
-    static (XDocument Doc, XElement Root) LoadOrCreate(string targetPath)
+    static XDocument LoadOrCreate(string targetPath)
     {
         if (File.Exists(targetPath))
         {
             var doc = XDocument.Load(targetPath);
             var root = doc.Root ?? throw new InvalidOperationException($"Invalid project file: {targetPath}");
-            return (doc, root);
+            if (root.Name.LocalName != "Project")
+                throw new InvalidOperationException($"Target XML root must be <Project>: {targetPath}");
+            return doc;
         }
 
         if (!IsDirectoryBuildFile(Path.GetFileName(targetPath)))
             throw new FileNotFoundException($"Target file not found: {targetPath}");
 
-        var newRoot = new XElement("Project");
-        return (new XDocument(newRoot), newRoot);
+        return new XDocument(new XElement("Project"));
     }
 
     static bool IsDirectoryBuildFile(string filename) =>
@@ -70,36 +73,32 @@ internal static class MSBuild
 
     static void SaveDocument(XDocument doc, string outputPath)
     {
-        var dir = Path.GetDirectoryName(outputPath);
-        if (!string.IsNullOrEmpty(dir))
-            Directory.CreateDirectory(dir);
+        var fullOutputPath = Path.GetFullPath(outputPath);
+        var dir = Path.GetDirectoryName(fullOutputPath) ??
+            throw new InvalidOperationException($"Invalid output path: {outputPath}");
+        Directory.CreateDirectory(dir);
+
+        var tempPath = Path.Combine(dir, $".{Path.GetFileName(fullOutputPath)}.{Path.GetRandomFileName()}.tmp");
 
         var settings = new XmlWriterSettings
         {
             Indent = true,
             IndentChars = "  ",
+            NewLineChars = "\n",
             OmitXmlDeclaration = doc.Declaration == null,
             Encoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
         };
 
-        using var writer = XmlWriter.Create(outputPath, settings);
-        doc.Save(writer);
+        try
+        {
+            using (var writer = XmlWriter.Create(tempPath, settings))
+                doc.Save(writer);
+            File.Move(tempPath, fullOutputPath, overwrite: true);
+        }
+        catch
+        {
+            if (File.Exists(tempPath)) File.Delete(tempPath);
+            throw;
+        }
     }
-
-    static string WrapTask(string inlineCode, string taskName, string targetName) =>
-        $$"""
-        <UsingTask TaskName="{{taskName}}" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
-          <Task>
-            <Code Type="Method" Language="cs">
-            <![CDATA[
-        {{inlineCode}}
-            ]]>
-            </Code>
-          </Task>
-        </UsingTask>
-        <Target Name="{{targetName}}">
-          <{{taskName}}/>
-        </Target>
-        """;
-
 }

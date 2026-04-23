@@ -138,6 +138,21 @@ public class MSBuildTests : IDisposable
     }
 
     [Fact]
+    public void Throws_when_existing_target_root_is_not_Project()
+    {
+        var target = Path.Combine(_dir, "Invalid.csproj");
+        var original = "<NotProject><PropertyGroup /></NotProject>";
+        File.WriteAllText(target, original);
+
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            Inject(Cfg(target, noBackup: false)));
+
+        Assert.Contains("root must be <Project>", ex.Message);
+        Assert.Equal(original, File.ReadAllText(target));
+        Assert.False(File.Exists($"{target}.bak"));
+    }
+
+    [Fact]
     public void Synthesises_new_Directory_Build_targets()
     {
         var target = Path.Combine(_dir, "Directory.Build.targets");
@@ -150,7 +165,7 @@ public class MSBuildTests : IDisposable
     }
 
     [Fact]
-    public void Refuses_to_double_inject()
+    public void Allows_repeated_injection()
     {
         var target = Path.Combine(_dir, "Already.csproj");
         File.WriteAllText(target, """
@@ -159,14 +174,71 @@ public class MSBuildTests : IDisposable
             </Project>
             """);
 
-        Inject(Cfg(target, noBackup: false));
+        Inject(Cfg(target, seed: 42));
+        Inject(Cfg(target, seed: 43));
 
-        var bak = $"{target}.bak";
-        var bakContent = File.ReadAllText(bak);
+        var doc = XDocument.Load(target);
+        var root = doc.Root!;
 
-        Assert.Throws<InvalidOperationException>(() => Inject(Cfg(target, noBackup: false)));
+        var taskNames = root.Elements()
+            .Where(e => e.Name.LocalName == "UsingTask")
+            .Select(e => e.Attribute("TaskName")!.Value)
+            .ToArray();
+        var targetNames = root.Elements()
+            .Where(e => e.Name.LocalName == "Target")
+            .Select(e => e.Attribute("Name")!.Value)
+            .ToArray();
 
-        Assert.Equal(bakContent, File.ReadAllText(bak));
+        Assert.Equal(2, taskNames.Length);
+        Assert.Equal(2, taskNames.Distinct().Count());
+        Assert.Equal(2, targetNames.Length);
+        Assert.Equal(2, targetNames.Distinct().Count());
+
+        var initialTargets = root.Attribute("InitialTargets")!.Value
+            .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        Assert.Contains(targetNames[0], initialTargets);
+        Assert.Contains(targetNames[1], initialTargets);
+    }
+
+    [Fact]
+    public void Allows_existing_RoslynCodeTaskFactory_task()
+    {
+        var target = Path.Combine(_dir, "InlineTask.csproj");
+        File.WriteAllText(target, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <UsingTask TaskName="Existing" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="Existing.dll">
+                <Task />
+              </UsingTask>
+            </Project>
+            """);
+
+        Inject(Cfg(target));
+
+        var doc = XDocument.Load(target);
+        var taskNames = doc.Root!.Elements()
+            .Where(e => e.Name.LocalName == "UsingTask")
+            .Select(e => e.Attribute("TaskName")!.Value)
+            .ToArray();
+
+        Assert.Equal(2, taskNames.Length);
+        Assert.Contains("Existing", taskNames);
+    }
+
+    [Fact]
+    public void Preserves_existing_bak_across_repeated_injection()
+    {
+        var target = Path.Combine(_dir, "Stable.csproj");
+        var original = """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup /></Project>""";
+        File.WriteAllText(target, original);
+
+        Inject(Cfg(target, seed: 42, noBackup: false));
+        var firstBak = File.ReadAllText($"{target}.bak");
+
+        Inject(Cfg(target, seed: 43, noBackup: false));
+        var secondBak = File.ReadAllText($"{target}.bak");
+
+        Assert.Equal(original, firstBak);
+        Assert.Equal(original, secondBak);
     }
 
     [Fact]
@@ -182,6 +254,27 @@ public class MSBuildTests : IDisposable
         Assert.Equal(@"$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll",
             usingTask.Attribute("AssemblyFile")?.Value);
         Assert.NotNull(usingTask.Attribute("TaskName")?.Value);
+    }
+
+    [Fact]
+    public void Injects_namespaced_elements_into_namespaced_project()
+    {
+        var target = Path.Combine(_dir, "Namespaced.csproj");
+        File.WriteAllText(target, """
+            <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+              <PropertyGroup />
+            </Project>
+            """);
+
+        Inject(Cfg(target));
+
+        var doc = XDocument.Load(target);
+        var ns = doc.Root!.Name.Namespace;
+
+        Assert.Contains(doc.Root.Elements(), e =>
+            e.Name == ns + "UsingTask");
+        Assert.Contains(doc.Root.Elements(), e =>
+            e.Name == ns + "Target");
     }
 
     [Fact]
