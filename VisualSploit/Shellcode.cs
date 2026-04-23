@@ -43,13 +43,14 @@ internal static class Shellcode
 
     static bool IsHexText(byte[] bytes)
     {
-        foreach (var b in bytes)
+        var start = HasUtf8Bom(bytes) ? 3 : 0;
+        for (int i = start; i < bytes.Length; i++)
         {
+            var b = bytes[i];
             bool ok = b switch
             {
                 (byte)'\t' or (byte)'\n' or (byte)'\r' or (byte)' ' or (byte)',' => true,
                 (byte)'x' or (byte)'X' => true,
-                0xEF or 0xBB or 0xBF => true,
                 _ when b <= 0x7F && Uri.IsHexDigit((char)b) => true,
                 _ => false,
             };
@@ -57,4 +58,7 @@ internal static class Shellcode
         }
         return true;
     }
+
+    static bool HasUtf8Bom(byte[] bytes) =>
+        bytes.AsSpan().StartsWith(Encoding.UTF8.Preamble);
 }

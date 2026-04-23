@@ -70,6 +70,16 @@ public class ShellcodeTests : IDisposable
             Shellcode.Parse(WriteBytes(
                 new byte[] { 0xEF, 0xBB, 0xBF, 0x64, 0x65, 0x61, 0x64, 0x62, 0x65, 0x65, 0x66 })));
 
+    [Theory]
+    [InlineData(new byte[] { 0x90, 0xEF, 0xCC })]        // lone EF mid-stream
+    [InlineData(new byte[] { 0x90, 0xBB, 0xCC })]        // lone BB mid-stream
+    [InlineData(new byte[] { 0x90, 0xBF, 0xCC })]        // lone BF mid-stream
+    [InlineData(new byte[] { 0xEF, 0x90, 0xCC })]        // lone EF leads
+    [InlineData(new byte[] { 0xEF, 0xBB, 0x90 })]        // partial BOM leads
+    [InlineData(new byte[] { 0x90, 0xEF, 0xBB, 0xBF })]  // full BOM mid-stream
+    public void Treats_non_bom_binary_with_bom_bytes_as_raw(byte[] raw) =>
+        Assert.Equal(raw, Shellcode.Parse(WriteBytes(raw)));
+
     [Fact]
     public void Throws_when_file_empty() =>
         Assert.Throws<InvalidDataException>(() => Shellcode.Parse(WriteBytes(Array.Empty<byte>())));
