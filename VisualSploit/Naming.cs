@@ -1,8 +1,11 @@
-namespace VisualSploit.Core;
+namespace VisualSploit;
 
 internal class Naming
 {
-    static readonly HashSet<string> Reserved = new()
+    const string Consonants = "bcdfghjklmnpqrstvwxyz";
+    const string Vowels = "aeiou";
+
+    internal static readonly HashSet<string> Reserved = new(StringComparer.Ordinal)
     {
         "abstract", "as", "base", "bool", "break", "byte", "case", "catch", "char",
         "checked", "class", "const", "continue", "decimal", "default", "delegate",
@@ -19,7 +22,15 @@ internal class Naming
     readonly Random _rng;
     readonly HashSet<string> _used = new();
 
-    public Naming(int? seed = null) => _rng = Utils.CreateRng(seed);
+    public Naming(int? seed = null) =>
+        _rng = seed.HasValue ? new Random(seed.Value) : new Random();
+
+    /// <summary>
+    /// Shared RNG stream. Xor.Encrypt and Junk.Emit draw from this directly; every
+    /// Naming.Next() call consumes the same stream. A fixed --seed yields byte-identical
+    /// output end-to-end only because all consumers agree on the draw order.
+    /// </summary>
+    public Random Rng => _rng;
 
     public string Next()
     {
@@ -29,12 +40,14 @@ internal class Naming
             var len = _rng.Next(4, 8);
             var chars = new char[len];
             for (int i = 0; i < len; i++)
-                chars[i] = (i % 2 == 0 ? "bcdfghjklmnpqrstvwxyz" : "aeiou")[_rng.Next(i % 2 == 0 ? 21 : 5)];
+            {
+                var alphabet = i % 2 == 0 ? Consonants : Vowels;
+                chars[i] = alphabet[_rng.Next(alphabet.Length)];
+            }
             name = new string(chars);
         }
-        while (_used.Contains(name) || Reserved.Contains(name));
+        while (Reserved.Contains(name) || !_used.Add(name));
 
-        _used.Add(name);
         return name;
     }
 }

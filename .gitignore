@@ -1,17 +1,14 @@
 # Build results
-bin/
-obj/
 [Bb]in/
 [Oo]bj/
-[Dd]ebug/
-[Rr]elease/
 
-# Visual Studio cache/options
+# Visual Studio cache / user files
 .vs/
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
+*.rsuser
 
 # Test and temporary files
 tmp/
@@ -35,13 +32,6 @@ packages/
 .idea/
 *.sln.iml
 
-# User-specific files
-*.rsuser
-*.suo
-*.user
-*.userosscache
-*.sln.docstates
-
 # VS Code
 .vscode/
 *.code-workspace
@@ -53,9 +43,6 @@ packages/
 Thumbs.db
 Desktop.ini
 
-# Misc
-default.xml
-
 # Test files and shellcode
-calc.bin
 *.bin
+!examples/*.bin
