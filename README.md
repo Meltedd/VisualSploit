@@ -1,16 +1,36 @@
 # VisualSploit
 
-Weaponizes an MSBuild project file to run embedded shellcode. Supply a `.csproj`, `.vbproj`, or `Directory.Build.props/targets` and a shellcode blob. The shellcode runs whenever someone builds, restores, or opens the project in Visual Studio.
+Weaponizes MSBuild project files to run embedded shellcode. Given a `.csproj`, `.vbproj`, or `Directory.Build.props/targets` and a shellcode blob, VisualSploit injects a loader that fires whenever the project is built, restored, or opened in Visual Studio. Cloning a backdoored repo and opening it in Visual Studio is enough to run the payload without user interaction.
 
 ## How it works
 
-MSBuild lets a project declare an [inline task](https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-roslyncodetaskfactory): a chunk of C# that `RoslynCodeTaskFactory` compiles and runs during the build. The `InitialTargets` attribute on `<Project>` names targets that fire before anything else when MSBuild evaluates the project. Per Microsoft's guidance, design-time builds are equivalent to full execution.
+MSBuild lets a project declare an inline task, a chunk of C# that `RoslynCodeTaskFactory` compiles and runs during the build:
 
-VisualSploit writes a `<UsingTask>` holding a self-decrypting shellcode loader, adds a `<Target>` that invokes it, and appends that target to `InitialTargets`. Any evaluation of the project triggers it: `dotnet build`, `dotnet restore`, Visual Studio opening the folder, or any IDE that runs MSBuild for IntelliSense. The emitted C# XOR-decrypts the embedded payload, allocates an RWX page through a dynamically resolved `VirtualAlloc`, and hands control to the shellcode via `CallWindowProcA`.
+```xml
+<UsingTask TaskName="Foo" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+  <Task>
+    <Code Type="Method" Language="cs">
+      <![CDATA[
+        public override bool Execute() { /* arbitrary C# */ return true; }
+      ]]>
+    </Code>
+  </Task>
+</UsingTask>
+```
 
-Cloned files carry no [MOTW](https://learn.microsoft.com/en-us/windows/win32/secauthz/mark-of-the-web), so Visual Studio's "trust this project?" prompt never fires on `git clone`. Cloning a backdoored repo and opening it in VS is enough to run the payload.
+`InitialTargets` on `<Project>` names targets that fire first when MSBuild evaluates the project.
 
-## Trigger surfaces
+VisualSploit writes a `<UsingTask>` containing a shellcode loader, adds a `<Target>` that invokes it, and appends that target to `InitialTargets`. Any evaluation runs the target, whether `dotnet build`, `dotnet restore`, Visual Studio opening the folder, or an IDE running MSBuild for IntelliSense. Microsoft treats those design-time builds as full execution.
+
+The emitted C# then:
+
+1. Decrypts the embedded payload with XOR.
+2. Allocates an RWX page via a dynamically resolved `VirtualAlloc`.
+3. Calls the shellcode through `CallWindowProcA`.
+
+Cloned files carry no [MOTW](https://learn.microsoft.com/en-us/windows/win32/secauthz/mark-of-the-web), so Visual Studio's "trust this project?" prompt never fires on `git clone`.
+
+## Targets
 
 | Target file                 | Fires when                                               |
 |-----------------------------|----------------------------------------------------------|
@@ -25,47 +45,46 @@ Cloned files carry no [MOTW](https://learn.microsoft.com/en-us/windows/win32/sec
 ```
 visualsploit <target> <shellcode> [options]
 
--o, --output <path>   Write to a different path (default: in-place)
+-o, --output <path>   Write to a different path (default: in place)
 -r, --rounds <n>      XOR rounds 1-5 (default 3)
 -s, --seed <n>        RNG seed for reproducible output
     --junk            Interleave junk code to vary emitted bytes
     --no-backup       Skip .bak when writing over an existing file
 ```
 
-Shellcode input accepts raw binary, `0x`-prefixed hex, comma-separated hex, or plain hex (whitespace ignored). The target is modified in place unless `--output` is passed. A `.bak` of whatever was overwritten is left alongside it.
+Shellcode can be raw binary or hex (whitespace, commas, and `0x` prefixes are ignored). The target is modified in place unless `--output` is passed, leaving a `.bak` of the original alongside.
 
 ```bash
+# Inject into a single project
 visualsploit project.csproj shellcode.bin
+
+# Compromise all projects in the subtree
 visualsploit repo/Directory.Build.props shellcode.bin
+
+# Reproducible output with junk code interleaved
 visualsploit repo/Directory.Build.targets shellcode.bin --junk -s 42
 ```
 
 ## Shellcode constraints
 
-- Bitness must match the MSBuild host. Use x64 shellcode for x64 MSBuild, x86 for x86.
-- Must be position-independent. The loader allocates a page at a system-chosen address and calls into it through `CallWindowProcA`, which invokes the shellcode as `WNDPROC(hWnd=0, Msg=0, wParam=0, lParam=0)`.
+- Bitness must match the MSBuild host (x64 for x64, x86 for x86).
+- Must be position-independent. The loader allocates a page at an address the system picks, then calls into it through `CallWindowProcA`, so shellcode runs as `WNDPROC(hWnd=0, Msg=0, wParam=0, lParam=0)`.
 - The page is mapped `PAGE_EXECUTE_READWRITE`, so self-modifying stagers like reflective loaders or metasploit `migrate` run without extra protection flips.
 
-## Detection surface
-
-Execution stays inside MSBuild. The parent is `devenv.exe` or `dotnet.exe`/`MSBuild.exe`, which loads the inline task assembly and invokes it without spawning a child.
-
-`VirtualAlloc` and `CallWindowProcA` are resolved at runtime via `LoadLibrary` and `GetProcAddress`, so neither appears as a static P/Invoke declaration. API name strings appear inline; earlier char-array wrappers were dropped since Roslyn const-folds them. Module names, delegate types, variable names, and the task and target names are drawn from a seeded RNG and differ per run unless `--seed` is passed.
-
 ## Build
+
+Requires .NET 10 SDK.
 
 ```bash
 dotnet build -c Release
 dotnet test
 ```
 
-Self-contained single-file build:
+Self-contained binary:
 
 ```bash
 dotnet publish -c Release -r <rid> --self-contained -p:PublishSingleFile=true
 ```
-
-Requires .NET 10 SDK.
 
 ## License
 
