@@ -2,6 +2,8 @@
 
 Weaponizes MSBuild project files to run embedded shellcode. Given a `.csproj`, `.vbproj`, or `Directory.Build.props/targets` and a shellcode blob, VisualSploit injects a loader that fires whenever the project is built, restored, or opened in Visual Studio. Cloning a backdoored repo and opening it in Visual Studio is enough to run the payload without user interaction.
 
+![demo](demo.gif)
+
 ## How it works
 
 MSBuild lets a project declare an inline task, a chunk of C# that `RoslynCodeTaskFactory` compiles and runs during the build:
