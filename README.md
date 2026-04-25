@@ -25,8 +25,8 @@ VisualSploit writes a `<UsingTask>` containing a shellcode loader, adds a `<Targ
 The emitted C# then:
 
 1. Decrypts the embedded payload with XOR.
-2. Allocates an RWX page via a dynamically resolved `VirtualAlloc`.
-3. Calls the shellcode through `CallWindowProcA`.
+2. Allocates an RWX page with `VirtualAlloc`.
+3. Spawns a thread at that page with `CreateThread` and waits for it.
 
 Cloned files carry no [MOTW](https://learn.microsoft.com/en-us/windows/win32/secauthz/mark-of-the-web), so Visual Studio's "trust this project?" prompt never fires on `git clone`.
 
@@ -68,8 +68,9 @@ visualsploit repo/Directory.Build.targets shellcode.bin --junk -s 42
 ## Shellcode constraints
 
 - Bitness must match the MSBuild host (x64 for x64, x86 for x86).
-- Must be position-independent. The loader allocates a page at an address the system picks, then calls into it through `CallWindowProcA`, so shellcode runs as `WNDPROC(hWnd=0, Msg=0, wParam=0, lParam=0)`.
+- Must be position-independent. The loader spawns a thread at an address the system picks; on x64, `RCX` is zero on entry.
 - The page is mapped `PAGE_EXECUTE_READWRITE`, so self-modifying stagers like reflective loaders or metasploit `migrate` run without extra protection flips.
+- Shellcode must terminate on its own (e.g. msfvenom's `EXITFUNC=thread`). The loader waits on the thread indefinitely and will hang the build otherwise.
 
 ## Build
 

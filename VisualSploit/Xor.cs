@@ -24,20 +24,20 @@ internal static class Xor
         return (result, keys);
     }
 
-    public static string Routine(string bufVar, byte[] data, byte[][] keys)
+    public static string Routine(string buf, byte[] data, byte[][] keys)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"var {bufVar} = new byte[] {{ {Hex(data)} }};");
+        sb.AppendLine($"var {buf} = new byte[] {{ {Hex(data)} }};");
         sb.AppendLine();
 
         for (int i = keys.Length - 1; i >= 0; i--)
-            sb.AppendLine($"var {bufVar}_k{i} = new byte[] {{ {Hex(keys[i])} }};");
+            sb.AppendLine($"var {buf}_k{i} = new byte[] {{ {Hex(keys[i])} }};");
         sb.AppendLine();
 
         for (int i = keys.Length - 1; i >= 0; i--)
         {
-            sb.AppendLine($"for (int {bufVar}_i{i} = 0; {bufVar}_i{i} < {bufVar}.Length; {bufVar}_i{i}++)");
-            sb.AppendLine($"    {bufVar}[{bufVar}_i{i}] ^= {bufVar}_k{i}[{bufVar}_i{i} % {KeySize}];");
+            sb.AppendLine($"for (int {buf}_i{i} = 0; {buf}_i{i} < {buf}.Length; {buf}_i{i}++)");
+            sb.AppendLine($"    {buf}[{buf}_i{i}] ^= {buf}_k{i}[{buf}_i{i} % {KeySize}];");
             if (i > 0) sb.AppendLine();
         }
 
