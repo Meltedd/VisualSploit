@@ -1,6 +1,12 @@
 # Examples
 
-`calc.bin` is a small x64 shellcode that launches `calc.exe`. Usage:
+`calc.bin` is a small x64 shellcode that launches `calc.exe`. Generated with:
+
+```bash
+msfvenom -p windows/x64/exec CMD=calc.exe EXITFUNC=thread -f raw -o calc.bin
+```
+
+Usage:
 
 ```bash
 visualsploit Sample.csproj calc.bin --junk -s 42
