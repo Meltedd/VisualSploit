@@ -26,9 +26,9 @@ internal class Naming
         _rng = seed.HasValue ? new Random(seed.Value) : new Random();
 
     /// <summary>
-    /// Shared RNG stream. Xor.Encrypt and Junk.Emit draw from this directly; every
-    /// Naming.Next() call consumes the same stream. A fixed --seed yields byte-identical
-    /// output end-to-end only because all consumers agree on the draw order.
+    /// Shared RNG stream. Xor.Encrypt draws from this directly; every Naming.Next() call
+    /// consumes the same stream. A fixed --seed yields byte-identical output end-to-end
+    /// only because all consumers agree on the draw order.
     /// </summary>
     public Random Rng => _rng;
 

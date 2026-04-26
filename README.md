@@ -50,7 +50,6 @@ visualsploit <target> <shellcode> [options]
 -o, --output <path>   Write to a different path (default: in place)
 -r, --rounds <n>      XOR rounds 1-5 (default 3)
 -s, --seed <n>        RNG seed for reproducible output
-    --junk            Interleave junk code to vary emitted bytes
     --no-backup       Skip .bak when writing over an existing file
 ```
 
@@ -63,8 +62,8 @@ visualsploit project.csproj shellcode.bin
 # Compromise all projects in the subtree
 visualsploit repo/Directory.Build.props shellcode.bin
 
-# Reproducible output with junk code interleaved
-visualsploit repo/Directory.Build.targets shellcode.bin --junk -s 42
+# Reproducible output
+visualsploit repo/Directory.Build.targets shellcode.bin -s 42
 ```
 
 ## Shellcode constraints

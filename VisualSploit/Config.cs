@@ -6,7 +6,6 @@ internal record Config(
     string? OutputPath,
     int XorRounds,
     int? Seed,
-    bool Junk,
     bool NoBackup)
 {
     public const int MaxXorRounds = 5;

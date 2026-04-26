@@ -35,11 +35,6 @@ class Program
             Description = "Skip .bak when writing over an existing file"
         };
 
-        var junkOption = new Option<bool>("--junk")
-        {
-            Description = "Interleave junk code"
-        };
-
         var roundsOption = new Option<int>("-r", "--rounds")
         {
             Description = $"XOR rounds 1-{Config.MaxXorRounds}",
@@ -63,7 +58,6 @@ class Program
             shellcodeArg,
             outputOption,
             noBackupOption,
-            junkOption,
             roundsOption,
             seedOption
         };
@@ -74,7 +68,6 @@ class Program
             var shellcode = ctx.GetValue(shellcodeArg)!;
             var output = ctx.GetValue(outputOption);
             var noBackup = ctx.GetValue(noBackupOption);
-            var junk = ctx.GetValue(junkOption);
             var rounds = ctx.GetValue(roundsOption);
             var seed = ctx.GetValue(seedOption);
 
@@ -84,7 +77,6 @@ class Program
                 OutputPath: output?.FullName,
                 XorRounds: rounds,
                 Seed: seed,
-                Junk: junk,
                 NoBackup: noBackup);
         }
 

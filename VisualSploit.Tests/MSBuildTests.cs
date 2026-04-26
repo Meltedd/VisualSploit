@@ -25,7 +25,6 @@ public class MSBuildTests : IDisposable
             OutputPath: output,
             XorRounds: 3,
             Seed: seed,
-            Junk: false,
             NoBackup: noBackup);
 
     const string Inline = "public override bool Execute() { return true; }";

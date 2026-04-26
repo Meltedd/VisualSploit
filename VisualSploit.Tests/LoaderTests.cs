@@ -16,23 +16,20 @@ public class LoaderTests
             .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p))
             .ToArray();
 
-    static Config Cfg(int? seed, bool junk) =>
+    static Config Cfg(int? seed) =>
         new(TargetPath: "/unused",
             ShellcodePath: "/unused",
             OutputPath: null,
             XorRounds: 3,
             Seed: seed,
-            Junk: junk,
             NoBackup: true);
 
     [Theory]
-    [InlineData(null, false)]
-    [InlineData(42, false)]
-    [InlineData(42, true)]
-    [InlineData(1, true)]
-    public void Generated_loader_parses_without_syntax_errors(int? seed, bool junk)
+    [InlineData(null)]
+    [InlineData(42)]
+    public void Generated_loader_parses_without_syntax_errors(int? seed)
     {
-        var source = Source(seed, junk);
+        var source = Source(seed);
 
         var ct = TestContext.Current.CancellationToken;
         var tree = CSharpSyntaxTree.ParseText(source, cancellationToken: ct);
@@ -47,14 +44,12 @@ public class LoaderTests
     }
 
     [Theory]
-    [InlineData(null, false)]
-    [InlineData(42, false)]
-    [InlineData(42, true)]
-    [InlineData(1, true)]
-    public void Generated_loader_has_no_compile_diagnostics(int? seed, bool junk)
+    [InlineData(null)]
+    [InlineData(42)]
+    public void Generated_loader_has_no_compile_diagnostics(int? seed)
     {
         var ct = TestContext.Current.CancellationToken;
-        var tree = CSharpSyntaxTree.ParseText(Source(seed, junk), cancellationToken: ct);
+        var tree = CSharpSyntaxTree.ParseText(Source(seed), cancellationToken: ct);
 
         var compilation = CSharpCompilation.Create(
             assemblyName: "GeneratedLoader",
@@ -72,14 +67,12 @@ public class LoaderTests
     }
 
     [Theory]
-    [InlineData(null, false)]
-    [InlineData(42, false)]
-    [InlineData(42, true)]
-    [InlineData(1, true)]
-    public void Generated_DllImports_specify_EntryPoint(int? seed, bool junk)
+    [InlineData(null)]
+    [InlineData(42)]
+    public void Generated_DllImports_specify_EntryPoint(int? seed)
     {
         var ct = TestContext.Current.CancellationToken;
-        var tree = CSharpSyntaxTree.ParseText(Source(seed, junk), cancellationToken: ct);
+        var tree = CSharpSyntaxTree.ParseText(Source(seed), cancellationToken: ct);
 
         var imports = tree.GetRoot(ct)
             .DescendantNodes()
@@ -96,9 +89,9 @@ public class LoaderTests
         }
     }
 
-    static string Source(int? seed, bool junk)
+    static string Source(int? seed)
     {
-        var cfg = Cfg(seed, junk);
+        var cfg = Cfg(seed);
         var naming = new Naming(cfg.Seed);
         var inlineCode = Loader.Generate(Shellcode, cfg, naming);
 
