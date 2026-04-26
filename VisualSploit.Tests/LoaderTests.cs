@@ -22,7 +22,9 @@ public class LoaderTests
             OutputPath: null,
             XorRounds: 3,
             Seed: seed,
-            NoBackup: true);
+            NoBackup: true,
+            DryRun: false,
+            Verbose: false);
 
     [Theory]
     [InlineData(null)]

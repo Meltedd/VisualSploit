@@ -19,13 +19,15 @@ public class MSBuildTests : IDisposable
         catch { }
     }
 
-    Config Cfg(string targetPath, int? seed = 42, string? output = null, bool noBackup = true) =>
+    Config Cfg(string targetPath, int? seed = 42, string? output = null, bool noBackup = true, bool dryRun = false, bool verbose = false) =>
         new(TargetPath: targetPath,
             ShellcodePath: "/unused",
             OutputPath: output,
             XorRounds: 3,
             Seed: seed,
-            NoBackup: noBackup);
+            NoBackup: noBackup,
+            DryRun: dryRun,
+            Verbose: verbose);
 
     const string Inline = "public override bool Execute() { return true; }";
 
@@ -294,5 +296,36 @@ public class MSBuildTests : IDisposable
         }
 
         Assert.Equal(Run("first"), Run("second"));
+    }
+
+    [Fact]
+    public void DryRun_does_not_modify_target_file()
+    {
+        var target = Path.Combine(_dir, "Untouched.csproj");
+        var original = """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup /></Project>""";
+        File.WriteAllText(target, original);
+
+        Silenced(() => Inject(Cfg(target, dryRun: true)));
+
+        Assert.Equal(original, File.ReadAllText(target));
+    }
+
+    [Fact]
+    public void DryRun_does_not_create_bak()
+    {
+        var target = Path.Combine(_dir, "NoBak.csproj");
+        File.WriteAllText(target, """<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup /></Project>""");
+
+        Silenced(() => Inject(Cfg(target, dryRun: true, noBackup: false)));
+
+        Assert.False(File.Exists($"{target}.bak"));
+    }
+
+    static void Silenced(Action action)
+    {
+        var oldOut = Console.Out;
+        Console.SetOut(new StringWriter());
+        try { action(); }
+        finally { Console.SetOut(oldOut); }
     }
 }

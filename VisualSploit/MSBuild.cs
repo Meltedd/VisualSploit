@@ -16,7 +16,7 @@ internal static class MSBuild
         var root = doc.Root!;
 
         var bakPath = $"{outputPath}.bak";
-        if (!cfg.NoBackup && File.Exists(outputPath) && !File.Exists(bakPath))
+        if (!cfg.DryRun && !cfg.NoBackup && File.Exists(outputPath) && !File.Exists(bakPath))
             File.Copy(outputPath, bakPath);
 
         MergeInitialTarget(root, targetName);
@@ -36,7 +36,15 @@ internal static class MSBuild
                 new XAttribute("Name", targetName),
                 new XElement(ns + taskName)));
 
-        SaveDocument(doc, outputPath);
+        if (cfg.DryRun) WriteDocument(doc, Console.Out);
+        else SaveDocument(doc, outputPath);
+
+        if (cfg.Verbose)
+        {
+            var verb = cfg.DryRun ? "would inject" : "injected";
+            Console.Error.WriteLine(
+                $"{verb} target '{targetName}' (task '{taskName}') into {outputPath}");
+        }
     }
 
     static XDocument LoadOrCreate(string targetPath)
@@ -80,18 +88,9 @@ internal static class MSBuild
 
         var tempPath = Path.Combine(dir, $".{Path.GetFileName(fullOutputPath)}.{Path.GetRandomFileName()}.tmp");
 
-        var settings = new XmlWriterSettings
-        {
-            Indent = true,
-            IndentChars = "  ",
-            NewLineChars = "\n",
-            OmitXmlDeclaration = doc.Declaration == null,
-            Encoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
-        };
-
         try
         {
-            using (var writer = XmlWriter.Create(tempPath, settings))
+            using (var writer = XmlWriter.Create(tempPath, BuildSettings(doc)))
                 doc.Save(writer);
             File.Move(tempPath, fullOutputPath, overwrite: true);
         }
@@ -101,4 +100,19 @@ internal static class MSBuild
             throw;
         }
     }
+
+    internal static void WriteDocument(XDocument doc, TextWriter writer)
+    {
+        using var xw = XmlWriter.Create(writer, BuildSettings(doc));
+        doc.Save(xw);
+    }
+
+    static XmlWriterSettings BuildSettings(XDocument doc) => new()
+    {
+        Indent = true,
+        IndentChars = "  ",
+        NewLineChars = "\n",
+        OmitXmlDeclaration = doc.Declaration == null,
+        Encoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
+    };
 }

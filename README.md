@@ -50,6 +50,8 @@ visualsploit <target> <shellcode> [options]
 -o, --output <path>   Write to a different path (default: in place)
 -r, --rounds <n>      XOR rounds 1-5 (default 3)
 -s, --seed <n>        RNG seed for reproducible output
+-n, --dry-run         Show injected XML without writing files
+-v, --verbose         Log injection summary to stderr
     --no-backup       Skip .bak when writing over an existing file
 ```
 

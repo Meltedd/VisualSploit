@@ -52,6 +52,16 @@ class Program
             Description = "RNG seed for reproducibility"
         };
 
+        var dryRunOption = new Option<bool>("--dry-run", "-n")
+        {
+            Description = "Show injected XML without writing files"
+        };
+
+        var verboseOption = new Option<bool>("--verbose", "-v")
+        {
+            Description = "Log injection summary to stderr"
+        };
+
         var root = new RootCommand("MSBuild inline task injection.")
         {
             targetArg,
@@ -59,7 +69,9 @@ class Program
             outputOption,
             noBackupOption,
             roundsOption,
-            seedOption
+            seedOption,
+            dryRunOption,
+            verboseOption
         };
 
         Config BuildConfig(ParseResult ctx)
@@ -70,6 +82,8 @@ class Program
             var noBackup = ctx.GetValue(noBackupOption);
             var rounds = ctx.GetValue(roundsOption);
             var seed = ctx.GetValue(seedOption);
+            var dryRun = ctx.GetValue(dryRunOption);
+            var verbose = ctx.GetValue(verboseOption);
 
             return new Config(
                 TargetPath: target.FullName,
@@ -77,7 +91,9 @@ class Program
                 OutputPath: output?.FullName,
                 XorRounds: rounds,
                 Seed: seed,
-                NoBackup: noBackup);
+                NoBackup: noBackup,
+                DryRun: dryRun,
+                Verbose: verbose);
         }
 
         root.SetAction(parseResult =>
