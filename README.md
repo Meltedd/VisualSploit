@@ -66,6 +66,9 @@ visualsploit repo/Directory.Build.props shellcode.bin
 
 # Reproducible output
 visualsploit repo/Directory.Build.targets shellcode.bin -s 42
+
+# Preview without writing
+visualsploit project.csproj shellcode.bin --dry-run
 ```
 
 ## Shellcode constraints
