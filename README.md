@@ -68,7 +68,7 @@ visualsploit repo/Directory.Build.targets shellcode.bin -s 42
 
 ## Shellcode constraints
 
-- Bitness must match the MSBuild host (x64 for x64, x86 for x86).
+- Bitness must match the MSBuild host (Visual Studio and `dotnet build` are x64 by default). A mismatch crashes the thread and hangs the build.
 - Must be position-independent. The loader spawns a thread at an address the system picks; on x64, `RCX` is zero on entry.
 - The page is mapped `PAGE_EXECUTE_READWRITE`, so self-modifying stagers like reflective loaders or metasploit `migrate` run without extra protection flips.
 - Shellcode must terminate on its own (e.g. msfvenom's `EXITFUNC=thread`). The loader waits on the thread indefinitely and will hang the build otherwise.
