@@ -53,6 +53,7 @@ visualsploit <target> <shellcode> [options]
 -n, --dry-run         Show injected XML without writing files
 -v, --verbose         Log injection summary to stderr
     --no-backup       Skip .bak when writing over an existing file
+    --version         Show version
 ```
 
 Shellcode can be raw binary or hex (whitespace, commas, and `0x` prefixes are ignored). The target is modified in place unless `--output` is passed, leaving a `.bak` of the original alongside.
