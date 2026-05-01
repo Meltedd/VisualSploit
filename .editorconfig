@@ -9,27 +9,7 @@ insert_final_newline = true
 trim_trailing_whitespace = true
 
 [*.cs]
-# Usings
-dotnet_sort_system_directives_first = true
-dotnet_separate_import_directive_groups = false
-
-# var usage — explicit unless type is obvious
-csharp_style_var_for_built_in_types = false:suggestion
-csharp_style_var_when_type_is_apparent = true:suggestion
-csharp_style_var_elsewhere = false:suggestion
-
-# Modern C# preferences
 csharp_style_namespace_declarations = file_scoped:suggestion
-csharp_style_expression_bodied_methods = when_on_single_line:suggestion
-csharp_style_pattern_matching_over_is_with_cast_check = true:suggestion
-csharp_style_implicit_object_creation_when_type_is_apparent = true:suggestion
-
-# Braces and newlines
-csharp_prefer_braces = true:suggestion
-csharp_new_line_before_open_brace = all
-csharp_new_line_before_else = true
-csharp_new_line_before_catch = true
-csharp_new_line_before_finally = true
 
 [*.{xml,csproj,props,targets,json,yml,yaml}]
 indent_size = 2
