@@ -1,48 +1,24 @@
-# Build results
+# Build output
 [Bb]in/
 [Oo]bj/
 
-# Visual Studio cache / user files
+# IDE / editor
 .vs/
-*.suo
+.idea/
+.vscode/
 *.user
-*.userosscache
-*.sln.docstates
-*.rsuser
-
-# Test and temporary files
-tmp/
-*.tmp
-*.bak
+*.suo
 *.swp
 *~
 
-# .NET Core
-project.lock.json
-project.fragment.lock.json
-artifacts/
-
-# NuGet
-*.nupkg
-*.snupkg
-packages/
-.nuget/
-
-# Rider
-.idea/
-*.sln.iml
-
-# VS Code
-.vscode/
-*.code-workspace
-
-# macOS
+# OS
 .DS_Store
-
-# Windows
 Thumbs.db
-Desktop.ini
 
-# Test files and shellcode
+# Tool output
+*.tmp
+*.bak
+
+# Shellcode
 *.bin
 !examples/*.bin
