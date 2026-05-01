@@ -1,5 +1,9 @@
 # VisualSploit
 
+[![ci](https://github.com/Meltedd/VisualSploit/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Meltedd/VisualSploit/actions/workflows/ci.yml)
+[![license](https://img.shields.io/github/license/Meltedd/VisualSploit)](LICENSE)
+[![release](https://img.shields.io/github/v/release/Meltedd/VisualSploit)](https://github.com/Meltedd/VisualSploit/releases)
+
 Weaponizes MSBuild project files to run embedded shellcode. Given a `.csproj`, `.vbproj`, or `Directory.Build.props/targets` and a shellcode blob, VisualSploit injects a loader that fires whenever the project is built, restored, or opened in Visual Studio. Cloning a backdoored repo and opening it in Visual Studio is enough to run the payload without user interaction.
 
 ![demo](demo.gif)
