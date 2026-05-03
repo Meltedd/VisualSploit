@@ -16,42 +16,28 @@ public class LoaderTests
             .Select(p => (MetadataReference)MetadataReference.CreateFromFile(p))
             .ToArray();
 
-    static Config Cfg(int? seed) =>
+    static Config Cfg(int? seed, TargetPlatform platform = TargetPlatform.Windows) =>
         new(TargetPath: "/unused",
             ShellcodePath: "/unused",
             OutputPath: null,
             XorRounds: 3,
             Seed: seed,
+            Platform: platform,
             NoBackup: true,
             DryRun: false,
             Verbose: false);
 
     [Theory]
-    [InlineData(null)]
-    [InlineData(42)]
-    public void Generated_loader_parses_without_syntax_errors(int? seed)
+    [InlineData(null, nameof(TargetPlatform.Windows))]
+    [InlineData(42, nameof(TargetPlatform.Windows))]
+    [InlineData(null, nameof(TargetPlatform.Linux))]
+    [InlineData(42, nameof(TargetPlatform.Linux))]
+    public void Generated_loader_has_no_compile_diagnostics(int? seed, string platformName)
     {
-        var source = Source(seed);
-
+        var platform = Enum.Parse<TargetPlatform>(platformName);
         var ct = TestContext.Current.CancellationToken;
+        var source = Source(seed, platform);
         var tree = CSharpSyntaxTree.ParseText(source, cancellationToken: ct);
-        var errors = tree.GetDiagnostics(ct)
-            .Where(d => d.Severity == DiagnosticSeverity.Error)
-            .ToList();
-
-        Assert.True(errors.Count == 0,
-            $"Generated loader has {errors.Count} syntax error(s):\n" +
-            string.Join("\n", errors.Select(e => $"  {e.Location.GetLineSpan().StartLinePosition}: {e.GetMessage()}")) +
-            "\n\nSource:\n" + source);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData(42)]
-    public void Generated_loader_has_no_compile_diagnostics(int? seed)
-    {
-        var ct = TestContext.Current.CancellationToken;
-        var tree = CSharpSyntaxTree.ParseText(Source(seed), cancellationToken: ct);
 
         var compilation = CSharpCompilation.Create(
             assemblyName: "GeneratedLoader",
@@ -65,16 +51,35 @@ public class LoaderTests
 
         Assert.True(errors.Count == 0,
             $"Generated loader has {errors.Count} compile error(s):\n" +
-            string.Join("\n", errors.Select(e => $"  {e.Location.GetLineSpan().StartLinePosition}: {e.GetMessage()}")));
+            string.Join("\n", errors.Select(e => $"  {e.Location.GetLineSpan().StartLinePosition}: {e.GetMessage()}")) +
+            "\n\nSource:\n" + source);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData(42)]
-    public void Generated_DllImports_specify_EntryPoint(int? seed)
+    [Fact]
+    public void Generated_windows_loader_imports_expected_symbols() =>
+        AssertImports(TargetPlatform.Windows, "kernel32",
+            ["VirtualAlloc", "CreateThread", "WaitForSingleObject"]);
+
+    [Fact]
+    public void Generated_linux_loader_imports_expected_symbols() =>
+        AssertImports(TargetPlatform.Linux, "libc",
+            ["mmap", "pthread_create", "pthread_join"]);
+
+    [Fact]
+    public void Generated_linux_loader_uses_linux_mmap_constants()
+    {
+        var source = Source(seed: 42, TargetPlatform.Linux);
+
+        Assert.Contains("(System.UIntPtr)(uint)", source);
+        Assert.Contains(", 7,", source);
+        Assert.Contains(", 7, 0x22, -1,", source);
+        Assert.Contains(", -1,", source);
+    }
+
+    static void AssertImports(TargetPlatform platform, string library, string[] entryPoints)
     {
         var ct = TestContext.Current.CancellationToken;
-        var tree = CSharpSyntaxTree.ParseText(Source(seed), cancellationToken: ct);
+        var tree = CSharpSyntaxTree.ParseText(Source(seed: 42, platform), cancellationToken: ct);
 
         var imports = tree.GetRoot(ct)
             .DescendantNodes()
@@ -82,18 +87,27 @@ public class LoaderTests
             .Where(a => a.Name.ToString().EndsWith("DllImport"))
             .ToList();
 
-        Assert.NotEmpty(imports);
+        Assert.Equal(3, imports.Count);
+
+        var seenEntryPoints = new List<string>();
         foreach (var attr in imports)
         {
-            var hasEntryPoint = attr.ArgumentList?.Arguments
-                .Any(a => a.NameEquals?.Name.Identifier.ValueText == "EntryPoint") == true;
-            Assert.True(hasEntryPoint, $"DllImport missing EntryPoint: {attr}");
+            var args = attr.ArgumentList!.Arguments;
+
+            var libArg = args[0];
+            Assert.Equal(library, ((LiteralExpressionSyntax)libArg.Expression).Token.ValueText);
+
+            var entryPointArg = args.Single(a =>
+                a.NameEquals?.Name.Identifier.ValueText == "EntryPoint");
+            seenEntryPoints.Add(((LiteralExpressionSyntax)entryPointArg.Expression).Token.ValueText);
         }
+
+        Assert.Equal(entryPoints, seenEntryPoints);
     }
 
-    static string Source(int? seed)
+    static string Source(int? seed, TargetPlatform platform = TargetPlatform.Windows)
     {
-        var cfg = Cfg(seed);
+        var cfg = Cfg(seed, platform);
         var naming = new Naming(cfg.Seed);
         var inlineCode = Loader.Generate(Shellcode, cfg, naming);
 
