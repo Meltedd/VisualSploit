@@ -20,7 +20,7 @@ class Program
 
         var shellcodeArg = new Argument<FileInfo>("shellcode")
         {
-            Description = "Shellcode file (raw bytes or hex)"
+            Description = "Shellcode file"
         };
         shellcodeArg.AcceptExistingOnly();
 
@@ -59,6 +59,13 @@ class Program
             DefaultValueFactory = _ => TargetPlatform.Windows
         };
 
+        var shellcodeFormatOption = new Option<ShellcodeFormat>("--shellcode-format")
+        {
+            Description = "Shellcode input format",
+            HelpName = "auto|raw|hex",
+            DefaultValueFactory = _ => ShellcodeFormat.Auto
+        };
+
         var dryRunOption = new Option<bool>("--dry-run", "-n")
         {
             Description = "Show injected XML without writing files"
@@ -78,6 +85,7 @@ class Program
             roundsOption,
             seedOption,
             platformOption,
+            shellcodeFormatOption,
             dryRunOption,
             verboseOption
         };
@@ -91,6 +99,7 @@ class Program
             var rounds = ctx.GetValue(roundsOption);
             var seed = ctx.GetValue(seedOption);
             var platform = ctx.GetValue(platformOption);
+            var shellcodeFormat = ctx.GetValue(shellcodeFormatOption);
             var dryRun = ctx.GetValue(dryRunOption);
             var verbose = ctx.GetValue(verboseOption);
 
@@ -101,6 +110,7 @@ class Program
                 XorRounds: rounds,
                 Seed: seed,
                 Platform: platform,
+                ShellcodeFormat: shellcodeFormat,
                 NoBackup: noBackup,
                 DryRun: dryRun,
                 Verbose: verbose);
@@ -111,7 +121,7 @@ class Program
             var cfg = BuildConfig(parseResult);
             try
             {
-                var shellcode = Shellcode.Parse(cfg.ShellcodePath);
+                var shellcode = Shellcode.Parse(cfg.ShellcodePath, cfg.ShellcodeFormat);
                 var naming = new Naming(cfg.Seed);
                 var inlineCode = Loader.Generate(shellcode, cfg, naming);
                 MSBuild.Inject(inlineCode, cfg, naming);

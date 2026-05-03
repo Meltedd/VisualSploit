@@ -4,7 +4,7 @@ namespace VisualSploit;
 
 internal static class Shellcode
 {
-    public static byte[] Parse(string path)
+    public static byte[] Parse(string path, ShellcodeFormat format = ShellcodeFormat.Auto)
     {
         if (!File.Exists(path))
             throw new FileNotFoundException($"Shellcode file not found: {path}");
@@ -13,7 +13,10 @@ internal static class Shellcode
         if (bytes.Length == 0)
             throw new InvalidDataException($"Shellcode file is empty: {path}");
 
-        if (!IsHexText(bytes))
+        if (format == ShellcodeFormat.Raw)
+            return bytes;
+
+        if (format == ShellcodeFormat.Auto && !IsHexText(bytes))
             return bytes;
 
         var cleaned = Clean(Encoding.UTF8.GetString(bytes));
