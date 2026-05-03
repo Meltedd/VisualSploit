@@ -6,6 +6,13 @@ internal enum TargetPlatform
     Linux
 }
 
+internal enum ShellcodeFormat
+{
+    Auto,
+    Raw,
+    Hex
+}
+
 internal record Config(
     string TargetPath,
     string ShellcodePath,
@@ -13,6 +20,7 @@ internal record Config(
     int XorRounds,
     int? Seed,
     TargetPlatform Platform,
+    ShellcodeFormat ShellcodeFormat,
     bool NoBackup,
     bool DryRun,
     bool Verbose)

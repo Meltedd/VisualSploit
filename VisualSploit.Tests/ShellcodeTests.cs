@@ -48,6 +48,16 @@ public class ShellcodeTests : IDisposable
             Shellcode.Parse(Write("deadbeef")));
 
     [Fact]
+    public void Raw_format_keeps_hex_looking_ascii_bytes() =>
+        Assert.Equal("deadbeef"u8.ToArray(),
+            Shellcode.Parse(Write("deadbeef"), ShellcodeFormat.Raw));
+
+    [Fact]
+    public void Hex_format_parses_hex_looking_ascii_bytes() =>
+        Assert.Equal(new byte[] { 0xde, 0xad, 0xbe, 0xef },
+            Shellcode.Parse(Write("deadbeef"), ShellcodeFormat.Hex));
+
+    [Fact]
     public void Handles_whitespace_and_newlines_in_hex() =>
         Assert.Equal(new byte[] { 0xde, 0xad, 0xbe, 0xef },
             Shellcode.Parse(Write("de ad\nbe\tef\r\n")));
@@ -69,6 +79,11 @@ public class ShellcodeTests : IDisposable
         Assert.Equal(new byte[] { 0xde, 0xad, 0xbe, 0xef },
             Shellcode.Parse(WriteBytes(
                 new byte[] { 0xEF, 0xBB, 0xBF, 0x64, 0x65, 0x61, 0x64, 0x62, 0x65, 0x65, 0x66 })));
+
+    [Fact]
+    public void Hex_format_handles_supported_hex_syntax() =>
+        Assert.Equal(new byte[] { 0xde, 0xad, 0xbe, 0xef },
+            Shellcode.Parse(Write("0xde, ad\nbe\tef"), ShellcodeFormat.Hex));
 
     [Theory]
     [InlineData(new byte[] { 0x90, 0xEF, 0xCC })]        // lone EF mid-stream
@@ -101,4 +116,8 @@ public class ShellcodeTests : IDisposable
     [Fact]
     public void Throws_on_malformed_hex_text() =>
         Assert.Throws<InvalidDataException>(() => Shellcode.Parse(Write("0x")));
+
+    [Fact]
+    public void Hex_format_throws_when_input_is_not_hex() =>
+        Assert.Throws<InvalidDataException>(() => Shellcode.Parse(Write("not hex"), ShellcodeFormat.Hex));
 }

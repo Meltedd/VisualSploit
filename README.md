@@ -57,12 +57,14 @@ visualsploit <target> <shellcode> [options]
 -s, --seed <n>              RNG seed for reproducibility
     --platform <windows|linux>
                             Target platform for emitted loader (default: Windows)
+    --shellcode-format <auto|raw|hex>
+                            Shellcode input format (default: auto)
 -n, --dry-run               Show injected XML without writing files
 -v, --verbose               Log injection summary to stderr
     --version               Show version
 ```
 
-Shellcode can be raw binary or hex (whitespace, commas, and `0x` prefixes are ignored). The target is modified in place unless `--output` is passed, leaving a `.bak` of the original alongside.
+Shellcode can be raw binary or hex. By default, VisualSploit automatically detects hex text, but you can use `--shellcode-format raw` or `--shellcode-format hex` to force parsing. Hex input may include whitespace, commas, and `0x` prefixes. The target is modified in place unless `--output` is passed, leaving a `.bak` of the original alongside.
 
 ```bash
 # Inject into a single project

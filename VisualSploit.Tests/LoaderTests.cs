@@ -23,6 +23,7 @@ public class LoaderTests
             XorRounds: 3,
             Seed: seed,
             Platform: platform,
+            ShellcodeFormat: ShellcodeFormat.Auto,
             NoBackup: true,
             DryRun: false,
             Verbose: false);

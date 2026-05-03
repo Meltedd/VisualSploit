@@ -43,10 +43,23 @@ public class ProgramTests : IDisposable
         Assert.DoesNotContain("kernel32", output);
     }
 
-    string RunWithOutputFile(params string[] extraArgs)
+    [Fact]
+    public void Shellcode_format_raw_keeps_hex_looking_input_as_bytes()
+    {
+        var autoOutput = RunWithOutputFile(shellcode: "C3"u8.ToArray());
+        var rawOutput = RunWithOutputFile(shellcode: "C3"u8.ToArray(), "--shellcode-format", "raw");
+
+        Assert.Equal(1, EmbeddedShellcodeByteCount(autoOutput));
+        Assert.Equal(2, EmbeddedShellcodeByteCount(rawOutput));
+    }
+
+    string RunWithOutputFile(params string[] extraArgs) =>
+        RunWithOutputFile(shellcode: [0xC3], extraArgs);
+
+    string RunWithOutputFile(byte[] shellcode, params string[] extraArgs)
     {
         var target = Path.Combine(_dir, $"{Guid.NewGuid():N}.csproj");
-        var shellcode = Path.Combine(_dir, $"{Guid.NewGuid():N}.bin");
+        var shellcodePath = Path.Combine(_dir, $"{Guid.NewGuid():N}.bin");
         var output = Path.Combine(_dir, $"{Guid.NewGuid():N}.csproj");
 
         File.WriteAllText(target, """
@@ -54,9 +67,9 @@ public class ProgramTests : IDisposable
               <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
             </Project>
             """);
-        File.WriteAllBytes(shellcode, [0xC3]);
+        File.WriteAllBytes(shellcodePath, shellcode);
 
-        var args = new List<string> { target, shellcode, "--output", output, "-s", "42" };
+        var args = new List<string> { target, shellcodePath, "--output", output, "-s", "42" };
         args.AddRange(extraArgs);
 
         var exitCode = Program.Main(args.ToArray());
@@ -64,5 +77,17 @@ public class ProgramTests : IDisposable
             $"Expected CLI to succeed. Exit code: {exitCode}. Args: {string.Join(" ", args)}. Output: {output}");
 
         return File.ReadAllText(output);
+    }
+
+    static int EmbeddedShellcodeByteCount(string output)
+    {
+        var start = output.IndexOf("new byte[] { ", StringComparison.Ordinal);
+        Assert.NotEqual(-1, start);
+        start += "new byte[] { ".Length;
+
+        var end = output.IndexOf(" }", start, StringComparison.Ordinal);
+        Assert.NotEqual(-1, end);
+
+        return output[start..end].Split(", ", StringSplitOptions.RemoveEmptyEntries).Length;
     }
 }
