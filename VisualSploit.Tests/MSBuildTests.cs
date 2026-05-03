@@ -25,6 +25,7 @@ public class MSBuildTests : IDisposable
             OutputPath: output,
             XorRounds: 3,
             Seed: seed,
+            Platform: TargetPlatform.Windows,
             NoBackup: noBackup,
             DryRun: dryRun,
             Verbose: verbose);
