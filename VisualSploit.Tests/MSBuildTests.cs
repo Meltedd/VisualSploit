@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text.Json;
 using System.Xml.Linq;
 using Xunit;
 
@@ -35,6 +37,8 @@ public class MSBuildTests : IDisposable
     const string Inline = "public override bool Execute() { return true; }";
 
     void Inject(Config cfg) => MSBuild.Inject(Inline, cfg, new Naming(cfg.Seed));
+
+    void Inject(Config cfg, string inlineCode) => MSBuild.Inject(inlineCode, cfg, new Naming(cfg.Seed));
 
     [Fact]
     public void Synthesises_new_file_with_empty_namespace()
@@ -348,6 +352,34 @@ public class MSBuildTests : IDisposable
     }
 
     [Fact]
+    public void Dotnet_build_runs_injected_initial_target()
+    {
+        var target = Path.Combine(_dir, "Smoke.csproj");
+        var marker = Path.Combine(_dir, "marker.txt");
+        File.WriteAllText(target, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        var inline = $$"""
+            public override bool Execute()
+            {
+                System.IO.File.WriteAllText({{CSharpStringLiteral(marker)}}, "ran");
+                return true;
+            }
+            """;
+
+        Inject(Cfg(target), inline);
+
+        var result = RunDotnetBuild(target);
+
+        Assert.True(result.ExitCode == 0,
+            $"dotnet build failed with exit code {result.ExitCode}\nstdout:\n{result.Stdout}\nstderr:\n{result.Stderr}");
+        Assert.True(File.Exists(marker), $"Expected injected target to write {marker}");
+        Assert.Equal("ran", File.ReadAllText(marker));
+    }
+
+    [Fact]
     public void DryRun_does_not_modify_target_file()
     {
         var target = Path.Combine(_dir, "Untouched.csproj");
@@ -377,4 +409,39 @@ public class MSBuildTests : IDisposable
         try { action(); }
         finally { Console.SetOut(oldOut); }
     }
+
+    static (int ExitCode, string Stdout, string Stderr) RunDotnetBuild(string projectPath)
+    {
+        using var process = new Process();
+        process.StartInfo = new ProcessStartInfo("dotnet")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        process.StartInfo.ArgumentList.Add("build");
+        process.StartInfo.ArgumentList.Add(projectPath);
+        process.StartInfo.ArgumentList.Add("-c");
+        process.StartInfo.ArgumentList.Add("Release");
+        process.StartInfo.ArgumentList.Add("--nologo");
+        process.StartInfo.ArgumentList.Add("-v:minimal");
+
+        process.Start();
+        var stdout = process.StandardOutput.ReadToEndAsync();
+        var stderr = process.StandardError.ReadToEndAsync();
+
+        if (!process.WaitForExit(30_000))
+        {
+            process.Kill(entireProcessTree: true);
+            throw new TimeoutException($"dotnet build timed out for {projectPath}");
+        }
+
+        return (
+            process.ExitCode,
+            stdout.GetAwaiter().GetResult(),
+            stderr.GetAwaiter().GetResult());
+    }
+
+    static string CSharpStringLiteral(string value) =>
+        JsonSerializer.Serialize(value);
 }
