@@ -61,6 +61,31 @@ public class ProgramTests : IDisposable
         Assert.Contains("Condition=\"'$(Configuration)' == 'Release'\"", output);
     }
 
+    [Theory]
+    [InlineData(".proj")]
+    [InlineData(".props")]
+    [InlineData(".targets")]
+    public void Accepts_existing_msbuild_target_extension(string extension)
+    {
+        var output = RunWithOutputFileForTarget(extension);
+
+        Assert.Contains("<UsingTask", output);
+    }
+
+    [Theory]
+    [InlineData(".fsproj")]
+    [InlineData(".vcxproj")]
+    [InlineData(".sln")]
+    [InlineData(".slnx")]
+    public void Rejects_unsupported_target_extension(string extension)
+    {
+        var (target, shellcodePath) = WriteInputs([0xC3], extension);
+
+        var exitCode = Program.Main([target, shellcodePath]);
+
+        Assert.NotEqual(0, exitCode);
+    }
+
     [Fact]
     public void Rejects_empty_condition()
     {
@@ -74,9 +99,15 @@ public class ProgramTests : IDisposable
     string RunWithOutputFile(params string[] extraArgs) =>
         RunWithOutputFile(shellcode: [0xC3], extraArgs);
 
-    string RunWithOutputFile(byte[] shellcode, params string[] extraArgs)
+    string RunWithOutputFile(byte[] shellcode, params string[] extraArgs) =>
+        RunWithOutputFileForTarget(shellcode, ".csproj", extraArgs);
+
+    string RunWithOutputFileForTarget(string targetExtension, params string[] extraArgs) =>
+        RunWithOutputFileForTarget([0xC3], targetExtension, extraArgs);
+
+    string RunWithOutputFileForTarget(byte[] shellcode, string targetExtension, params string[] extraArgs)
     {
-        var (target, shellcodePath) = WriteInputs(shellcode);
+        var (target, shellcodePath) = WriteInputs(shellcode, targetExtension);
         var output = Path.Combine(_dir, $"{Guid.NewGuid():N}.csproj");
 
         var args = new List<string> { target, shellcodePath, "--output", output, "-s", "42" };
@@ -89,9 +120,9 @@ public class ProgramTests : IDisposable
         return File.ReadAllText(output);
     }
 
-    (string target, string shellcodePath) WriteInputs(byte[] shellcode)
+    (string target, string shellcodePath) WriteInputs(byte[] shellcode, string targetExtension = ".csproj")
     {
-        var target = Path.Combine(_dir, $"{Guid.NewGuid():N}.csproj");
+        var target = Path.Combine(_dir, $"{Guid.NewGuid():N}{targetExtension}");
         var shellcodePath = Path.Combine(_dir, $"{Guid.NewGuid():N}.bin");
 
         File.WriteAllText(target, """
