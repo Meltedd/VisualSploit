@@ -1,5 +1,7 @@
 # Examples
 
+The examples below use `Sample.csproj` as the simplest single project target. `Directory.Build.props` is imported automatically by projects below its directory, so the generated target runs when MSBuild evaluates those projects. Existing `.proj`, `.props`, and `.targets` files are valid targets too, but they only run when MSBuild evaluates the `.proj` file or when a project imports the `.props`/`.targets` file.
+
 Generate a Windows x64 sample that launches Calculator:
 
 ```bash
@@ -13,5 +15,3 @@ Generate a Linux smoke test payload that returns immediately:
 printf '\303' > ret.bin
 visualsploit Sample.csproj ret.bin -s 42 --platform linux
 ```
-
-Use `Directory.Build.props` instead of `Sample.csproj` to target every project below a directory.
