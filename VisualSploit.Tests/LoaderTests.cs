@@ -24,6 +24,7 @@ public class LoaderTests
             Seed: seed,
             Platform: platform,
             ShellcodeFormat: ShellcodeFormat.Auto,
+            Condition: null,
             NoBackup: true,
             DryRun: false,
             Verbose: false);

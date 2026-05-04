@@ -21,6 +21,7 @@ internal record Config(
     int? Seed,
     TargetPlatform Platform,
     ShellcodeFormat ShellcodeFormat,
+    string? Condition,
     bool NoBackup,
     bool DryRun,
     bool Verbose)
