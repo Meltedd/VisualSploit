@@ -53,21 +53,31 @@ public class ProgramTests : IDisposable
         Assert.Equal(2, EmbeddedShellcodeByteCount(rawOutput));
     }
 
+    [Fact]
+    public void Output_includes_condition_when_configured()
+    {
+        var output = RunWithOutputFile("--condition", "'$(Configuration)' == 'Release'");
+
+        Assert.Contains("Condition=\"'$(Configuration)' == 'Release'\"", output);
+    }
+
+    [Fact]
+    public void Rejects_empty_condition()
+    {
+        var (target, shellcodePath) = WriteInputs([0xC3]);
+
+        var exitCode = Program.Main([target, shellcodePath, "--condition", " "]);
+
+        Assert.NotEqual(0, exitCode);
+    }
+
     string RunWithOutputFile(params string[] extraArgs) =>
         RunWithOutputFile(shellcode: [0xC3], extraArgs);
 
     string RunWithOutputFile(byte[] shellcode, params string[] extraArgs)
     {
-        var target = Path.Combine(_dir, $"{Guid.NewGuid():N}.csproj");
-        var shellcodePath = Path.Combine(_dir, $"{Guid.NewGuid():N}.bin");
+        var (target, shellcodePath) = WriteInputs(shellcode);
         var output = Path.Combine(_dir, $"{Guid.NewGuid():N}.csproj");
-
-        File.WriteAllText(target, """
-            <Project Sdk="Microsoft.NET.Sdk">
-              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-            </Project>
-            """);
-        File.WriteAllBytes(shellcodePath, shellcode);
 
         var args = new List<string> { target, shellcodePath, "--output", output, "-s", "42" };
         args.AddRange(extraArgs);
@@ -77,6 +87,21 @@ public class ProgramTests : IDisposable
             $"Expected CLI to succeed. Exit code: {exitCode}. Args: {string.Join(" ", args)}. Output: {output}");
 
         return File.ReadAllText(output);
+    }
+
+    (string target, string shellcodePath) WriteInputs(byte[] shellcode)
+    {
+        var target = Path.Combine(_dir, $"{Guid.NewGuid():N}.csproj");
+        var shellcodePath = Path.Combine(_dir, $"{Guid.NewGuid():N}.bin");
+
+        File.WriteAllText(target, """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+            </Project>
+            """);
+        File.WriteAllBytes(shellcodePath, shellcode);
+
+        return (target, shellcodePath);
     }
 
     static int EmbeddedShellcodeByteCount(string output)

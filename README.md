@@ -59,12 +59,28 @@ visualsploit <target> <shellcode> [options]
                             Target platform for emitted loader (default: Windows)
     --shellcode-format <auto|raw|hex>
                             Shellcode input format (default: auto)
+    --condition <expr>      MSBuild condition for generated target
 -n, --dry-run               Show injected XML without writing files
 -v, --verbose               Log injection summary to stderr
     --version               Show version
 ```
 
 Shellcode can be raw binary or hex. By default, VisualSploit automatically detects hex text, but you can use `--shellcode-format raw` or `--shellcode-format hex` to force parsing. Hex input may include whitespace, commas, and `0x` prefixes. The target is modified in place unless `--output` is passed, leaving a `.bak` of the original alongside.
+
+`--condition` sets the MSBuild `Condition` attribute on the generated target. VisualSploit passes the expression through as written; see Microsoft's [MSBuild conditions](https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-conditions) reference for syntax.
+
+Useful gates include:
+
+```text
+# Windows hosts
+'$(OS)' == 'Windows_NT'
+
+# Unix-like hosts
+'$(OS)' == 'Unix'
+
+# Release builds
+'$(Configuration)' == 'Release'
+```
 
 ```bash
 # Inject into a single project
@@ -81,6 +97,9 @@ visualsploit project.csproj shellcode.bin --dry-run
 
 # Emit a Linux loader
 visualsploit project.csproj linux-x64-shellcode.bin --platform linux
+
+# Run only for Release builds
+visualsploit project.csproj shellcode.bin --condition "'\$(Configuration)' == 'Release'"
 ```
 
 ## Shellcode constraints

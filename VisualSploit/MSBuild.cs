@@ -22,19 +22,22 @@ internal static class MSBuild
         MergeInitialTarget(root, targetName);
 
         var ns = root.Name.Namespace;
-        root.Add(
-            new XElement(ns + "UsingTask",
-                new XAttribute("TaskName", taskName),
-                new XAttribute("TaskFactory", "RoslynCodeTaskFactory"),
-                new XAttribute("AssemblyFile", @"$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll"),
-                new XElement(ns + "Task",
-                    new XElement(ns + "Code",
-                        new XAttribute("Type", "Method"),
-                        new XAttribute("Language", "cs"),
-                        new XCData("\n" + inlineCode + "\n")))),
-            new XElement(ns + "Target",
-                new XAttribute("Name", targetName),
-                new XElement(ns + taskName)));
+        var usingTask = new XElement(ns + "UsingTask",
+            new XAttribute("TaskName", taskName),
+            new XAttribute("TaskFactory", "RoslynCodeTaskFactory"),
+            new XAttribute("AssemblyFile", @"$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll"),
+            new XElement(ns + "Task",
+                new XElement(ns + "Code",
+                    new XAttribute("Type", "Method"),
+                    new XAttribute("Language", "cs"),
+                    new XCData("\n" + inlineCode + "\n"))));
+        var target = new XElement(ns + "Target",
+            new XAttribute("Name", targetName),
+            new XElement(ns + taskName));
+        if (cfg.Condition is not null)
+            target.SetAttributeValue("Condition", cfg.Condition);
+
+        root.Add(usingTask, target);
 
         if (cfg.DryRun) WriteDocument(doc, Console.Out);
         else SaveDocument(doc, outputPath);

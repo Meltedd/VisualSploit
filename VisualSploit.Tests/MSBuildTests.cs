@@ -19,7 +19,7 @@ public class MSBuildTests : IDisposable
         catch { }
     }
 
-    Config Cfg(string targetPath, int? seed = 42, string? output = null, bool noBackup = true, bool dryRun = false, bool verbose = false) =>
+    Config Cfg(string targetPath, int? seed = 42, string? output = null, bool noBackup = true, bool dryRun = false, bool verbose = false, string? condition = null) =>
         new(TargetPath: targetPath,
             ShellcodePath: "/unused",
             OutputPath: output,
@@ -27,6 +27,7 @@ public class MSBuildTests : IDisposable
             Seed: seed,
             Platform: TargetPlatform.Windows,
             ShellcodeFormat: ShellcodeFormat.Auto,
+            Condition: condition,
             NoBackup: noBackup,
             DryRun: dryRun,
             Verbose: verbose);
@@ -257,6 +258,52 @@ public class MSBuildTests : IDisposable
         Assert.Equal(@"$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll",
             usingTask.Attribute("AssemblyFile")?.Value);
         Assert.NotNull(usingTask.Attribute("TaskName")?.Value);
+    }
+
+    [Fact]
+    public void Omits_condition_from_generated_target_by_default()
+    {
+        var target = Path.Combine(_dir, "Directory.Build.props");
+        Inject(Cfg(target));
+
+        var doc = XDocument.Load(target);
+        var generatedTarget = doc.Root!.Elements().Single(e => e.Name.LocalName == "Target");
+
+        Assert.Null(generatedTarget.Attribute("Condition"));
+    }
+
+    [Fact]
+    public void Adds_condition_to_generated_target_when_configured()
+    {
+        var target = Path.Combine(_dir, "Directory.Build.props");
+        var condition = "'$(Configuration)' == 'Release'";
+        Inject(Cfg(target, condition: condition));
+
+        var doc = XDocument.Load(target);
+        var generatedTarget = doc.Root!.Elements().Single(e => e.Name.LocalName == "Target");
+        var conditionedElements = doc.Root!.Descendants()
+            .Where(e => e.Attribute("Condition") is not null)
+            .ToArray();
+
+        var conditionedElement = Assert.Single(conditionedElements);
+        Assert.Same(generatedTarget, conditionedElement);
+        Assert.Equal(condition, generatedTarget.Attribute("Condition")?.Value);
+    }
+
+    [Fact]
+    public void Escapes_condition_as_xml_attribute()
+    {
+        var target = Path.Combine(_dir, "Directory.Build.props");
+        var condition = "'$(TargetFramework)' == 'net10.0' And '$(DefineConstants)' != 'A&B'";
+        Inject(Cfg(target, condition: condition));
+
+        var raw = File.ReadAllText(target);
+        Assert.Contains("A&amp;B", raw);
+
+        var doc = XDocument.Load(target);
+        var generatedTarget = doc.Root!.Elements().Single(e => e.Name.LocalName == "Target");
+
+        Assert.Equal(condition, generatedTarget.Attribute("Condition")?.Value);
     }
 
     [Fact]

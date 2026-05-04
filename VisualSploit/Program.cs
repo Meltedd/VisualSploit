@@ -66,6 +66,18 @@ class Program
             DefaultValueFactory = _ => ShellcodeFormat.Auto
         };
 
+        var conditionOption = new Option<string?>("--condition")
+        {
+            Description = "MSBuild condition for generated target",
+            HelpName = "expr"
+        };
+        conditionOption.Validators.Add(r =>
+        {
+            var value = r.GetValue(conditionOption);
+            if (value is not null && string.IsNullOrWhiteSpace(value))
+                r.AddError("Condition cannot be empty");
+        });
+
         var dryRunOption = new Option<bool>("--dry-run", "-n")
         {
             Description = "Show injected XML without writing files"
@@ -86,6 +98,7 @@ class Program
             seedOption,
             platformOption,
             shellcodeFormatOption,
+            conditionOption,
             dryRunOption,
             verboseOption
         };
@@ -100,6 +113,7 @@ class Program
             var seed = ctx.GetValue(seedOption);
             var platform = ctx.GetValue(platformOption);
             var shellcodeFormat = ctx.GetValue(shellcodeFormatOption);
+            var condition = ctx.GetValue(conditionOption);
             var dryRun = ctx.GetValue(dryRunOption);
             var verbose = ctx.GetValue(verboseOption);
 
@@ -111,6 +125,7 @@ class Program
                 Seed: seed,
                 Platform: platform,
                 ShellcodeFormat: shellcodeFormat,
+                Condition: condition,
                 NoBackup: noBackup,
                 DryRun: dryRun,
                 Verbose: verbose);
