@@ -4,7 +4,7 @@
 [![release](https://img.shields.io/github/v/release/Meltedd/VisualSploit)](https://github.com/Meltedd/VisualSploit/releases)
 [![license](https://img.shields.io/github/license/Meltedd/VisualSploit)](LICENSE)
 
-Weaponizes MSBuild project files to run embedded shellcode. Given a `.csproj`, `.vbproj`, or `Directory.Build.props/targets` and a shellcode blob, VisualSploit injects a loader that fires whenever the project is built, restored, or opened in Visual Studio. Cloning a backdoored repo and evaluating it with Visual Studio, `dotnet`, or CI can be enough to run the payload without user interaction.
+Weaponizes MSBuild project files to run embedded shellcode. Given a supported MSBuild XML file (`.csproj`, `.vbproj`, `.proj`, imported `.props`/`.targets`, or `Directory.Build.props/targets`) and a shellcode blob, VisualSploit injects a loader that fires whenever MSBuild evaluates that file. Cloning a backdoored repo and evaluating it with Visual Studio, `dotnet`, or CI can be enough to run the payload without user interaction.
 
 ![demo](demo.gif)
 
@@ -38,13 +38,16 @@ Cloned files carry no [MOTW](https://learn.microsoft.com/en-us/windows/win32/sec
 
 ## Targets
 
-| Target file                 | Fires when                                    |
-|-----------------------------|-----------------------------------------------|
-| `*.csproj` / `*.vbproj`     | The project is opened, restored, or built     |
-| `Directory.Build.props`     | Any project in or below its directory is opened, restored, or built |
-| `Directory.Build.targets`   | Any project in or below its directory is built |
+| Target file                       | Fires when                                    |
+|-----------------------------------|-----------------------------------------------|
+| `*.csproj` / `*.vbproj`           | The project is opened, restored, or built     |
+| `*.proj`                          | The build file is run by MSBuild              |
+| `Directory.Build.props`           | Any project in or below its directory is opened, restored, or built |
+| `Directory.Build.targets`         | Any project in or below its directory is built |
+| Existing `*.props` / `*.targets`  | A project or build imports the file           |
 
 `Directory.Build.props` and `.targets` are imported implicitly for every project beneath them, so a single injected file at a repo root compromises the whole subtree across developer machines, CI runners, and devcontainers that evaluate MSBuild.
+Other `.props` and `.targets` files must already be imported by a project or build.
 
 ## Usage
 

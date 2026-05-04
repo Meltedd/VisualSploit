@@ -86,6 +86,31 @@ public class MSBuildTests : IDisposable
         Assert.Contains(root.Elements(), e => e.Name.LocalName == "Target");
     }
 
+    [Theory]
+    [InlineData(".proj")]
+    [InlineData(".props")]
+    [InlineData(".targets")]
+    public void Merges_into_existing_msbuild_file_preserving_project_contents(string extension)
+    {
+        var target = Path.Combine(_dir, $"Existing{extension}");
+        File.WriteAllText(target, """
+            <Project>
+              <PropertyGroup>
+                <Keep>Value</Keep>
+              </PropertyGroup>
+            </Project>
+            """);
+
+        Inject(Cfg(target));
+
+        var doc = XDocument.Load(target);
+        var root = doc.Root!;
+
+        Assert.Equal("Value", root.Descendants().First(e => e.Name.LocalName == "Keep").Value);
+        Assert.Contains(root.Elements(), e => e.Name.LocalName == "UsingTask");
+        Assert.Contains(root.Elements(), e => e.Name.LocalName == "Target");
+    }
+
     [Fact]
     public void Appends_generated_target_after_existing_InitialTargets()
     {
@@ -142,6 +167,16 @@ public class MSBuildTests : IDisposable
     public void Throws_when_csproj_target_does_not_exist()
     {
         var target = Path.Combine(_dir, "missing.csproj");
+        Assert.Throws<FileNotFoundException>(() => Inject(Cfg(target)));
+    }
+
+    [Theory]
+    [InlineData("missing.proj")]
+    [InlineData("missing.props")]
+    [InlineData("missing.targets")]
+    public void Throws_when_missing_non_Directory_Build_msbuild_file_does_not_exist(string filename)
+    {
+        var target = Path.Combine(_dir, filename);
         Assert.Throws<FileNotFoundException>(() => Inject(Cfg(target)));
     }
 

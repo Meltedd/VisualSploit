@@ -8,7 +8,7 @@ class Program
     {
         var targetArg = new Argument<FileInfo>("target")
         {
-            Description = "Target .csproj, .vbproj, Directory.Build.props, or Directory.Build.targets"
+            Description = "Target .csproj, .vbproj, .proj, .props, .targets, or Directory.Build.props/targets"
         };
         targetArg.Validators.Add(r =>
         {
@@ -156,13 +156,12 @@ class Program
     {
         var ext = Path.GetExtension(filename);
         if (ext.Equals(".csproj", StringComparison.OrdinalIgnoreCase) ||
-            ext.Equals(".vbproj", StringComparison.OrdinalIgnoreCase))
+            ext.Equals(".vbproj", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".proj", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".props", StringComparison.OrdinalIgnoreCase) ||
+            ext.Equals(".targets", StringComparison.OrdinalIgnoreCase))
             return null;
 
-        if (filename.Equals("Directory.Build.props", StringComparison.OrdinalIgnoreCase) ||
-            filename.Equals("Directory.Build.targets", StringComparison.OrdinalIgnoreCase))
-            return null;
-
-        return "Target must be one of: *.csproj, *.vbproj, Directory.Build.props, Directory.Build.targets";
+        return "Target must be one of: *.csproj, *.vbproj, *.proj, *.props, *.targets, Directory.Build.props, Directory.Build.targets";
     }
 }
