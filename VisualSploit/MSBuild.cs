@@ -22,22 +22,33 @@ internal static class MSBuild
         MergeInitialTarget(root, targetName);
 
         var ns = root.Name.Namespace;
+        var indent = DetectChildIndent(root);
+        var nested = indent + indent;
+        var deeper = nested + indent;
+        XText Line(string padding) => new("\n" + padding);
+
         var usingTask = new XElement(ns + "UsingTask",
             new XAttribute("TaskName", taskName),
             new XAttribute("TaskFactory", "RoslynCodeTaskFactory"),
             new XAttribute("AssemblyFile", @"$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll"),
+            Line(nested),
             new XElement(ns + "Task",
+                Line(deeper),
                 new XElement(ns + "Code",
                     new XAttribute("Type", "Method"),
                     new XAttribute("Language", "cs"),
-                    new XCData("\n" + inlineCode + "\n"))));
+                    new XCData("\n" + inlineCode + "\n")),
+                Line(nested)),
+            Line(indent));
         var target = new XElement(ns + "Target",
             new XAttribute("Name", targetName),
-            new XElement(ns + taskName));
+            Line(nested),
+            new XElement(ns + taskName),
+            Line(indent));
         if (cfg.Condition is not null)
             target.SetAttributeValue("Condition", cfg.Condition);
 
-        root.Add(usingTask, target);
+        AppendGenerated(root, indent, usingTask, target);
 
         if (cfg.DryRun) WriteDocument(doc, Console.Out);
         else SaveDocument(doc, outputPath);
@@ -54,7 +65,7 @@ internal static class MSBuild
     {
         if (File.Exists(targetPath))
         {
-            var doc = XDocument.Load(targetPath);
+            var doc = XDocument.Load(targetPath, LoadOptions.PreserveWhitespace);
             var root = doc.Root ?? throw new InvalidOperationException($"Invalid project file: {targetPath}");
             if (root.Name.LocalName != "Project")
                 throw new InvalidOperationException($"Target XML root must be <Project>: {targetPath}");
@@ -80,6 +91,42 @@ internal static class MSBuild
         if (!targets.Contains(targetName, StringComparer.OrdinalIgnoreCase))
             targets.Add(targetName);
         root.SetAttributeValue("InitialTargets", string.Join(";", targets));
+    }
+
+    static string DetectChildIndent(XElement root)
+    {
+        foreach (var text in root.Nodes().OfType<XText>())
+        {
+            var value = text.Value;
+            if (!string.IsNullOrWhiteSpace(value))
+                continue;
+
+            var newline = value.LastIndexOf('\n');
+            if (newline >= 0 && newline + 1 < value.Length)
+                return value[(newline + 1)..];
+        }
+
+        return "  ";
+    }
+
+    static void AppendGenerated(XElement root, string indent, params XElement[] children)
+    {
+        var pad = "\n" + indent;
+        var trailing = root.LastNode as XText;
+        var insertBeforeTrailing = trailing is not null &&
+            string.IsNullOrWhiteSpace(trailing.Value) &&
+            trailing.Value.Contains('\n');
+
+        foreach (var child in children)
+        {
+            if (insertBeforeTrailing)
+                trailing!.AddBeforeSelf(new XText(pad), child);
+            else
+                root.Add(new XText(pad), child);
+        }
+
+        if (!insertBeforeTrailing)
+            root.Add(new XText("\n"));
     }
 
     static void SaveDocument(XDocument doc, string outputPath)
@@ -112,9 +159,8 @@ internal static class MSBuild
 
     static XmlWriterSettings BuildSettings(XDocument doc) => new()
     {
-        Indent = true,
-        IndentChars = "  ",
-        NewLineChars = "\n",
+        Indent = false,
+        NewLineHandling = NewLineHandling.None,
         OmitXmlDeclaration = doc.Declaration == null,
         Encoding = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
     };

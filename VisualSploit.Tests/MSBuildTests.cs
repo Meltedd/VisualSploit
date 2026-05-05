@@ -208,6 +208,85 @@ public class MSBuildTests : IDisposable
     }
 
     [Fact]
+    public void Preserves_four_space_indentation_and_formats_generated_nodes()
+    {
+        var target = Path.Combine(_dir, "FourSpace.csproj");
+        File.WriteAllText(target, """
+            <Project Sdk="Microsoft.NET.Sdk">
+                <PropertyGroup>
+                    <TargetFramework>net10.0</TargetFramework>
+                </PropertyGroup>
+
+                <ItemGroup>
+                    <PackageReference Include="Foo" Version="1.0.0" />
+                </ItemGroup>
+            </Project>
+            """);
+
+        Inject(Cfg(target));
+
+        var raw = File.ReadAllText(target);
+
+        Assert.Contains("    <PropertyGroup>", raw);
+        Assert.Contains("</PropertyGroup>\n\n    <ItemGroup>", raw);
+        Assert.Contains("\n    <UsingTask ", raw);
+        Assert.Contains("\n        <Task>", raw);
+        Assert.Contains("\n            <Code ", raw);
+        Assert.Contains("\n        </Task>", raw);
+        Assert.Contains("\n    </UsingTask>", raw);
+        Assert.Contains("\n    <Target ", raw);
+        AssertTargetInvocationIndented(raw, "    ", "        ");
+        Assert.Contains("\n    </Target>", raw);
+    }
+
+    [Fact]
+    public void Preserves_tab_indentation_and_formats_generated_nodes()
+    {
+        var target = Path.Combine(_dir, "Tabs.csproj");
+        File.WriteAllText(target,
+            "<Project Sdk=\"Microsoft.NET.Sdk\">\n" +
+            "\t<PropertyGroup>\n" +
+            "\t\t<TargetFramework>net10.0</TargetFramework>\n" +
+            "\t</PropertyGroup>\n" +
+            "</Project>\n");
+
+        Inject(Cfg(target));
+
+        var raw = File.ReadAllText(target);
+
+        Assert.Contains("\n\t<PropertyGroup>", raw);
+        Assert.Contains("\n\t<UsingTask ", raw);
+        Assert.Contains("\n\t\t<Task>", raw);
+        Assert.Contains("\n\t\t\t<Code ", raw);
+        Assert.Contains("\n\t\t</Task>", raw);
+        Assert.Contains("\n\t</UsingTask>", raw);
+        Assert.Contains("\n\t<Target ", raw);
+        AssertTargetInvocationIndented(raw, "\t", "\t\t");
+        Assert.Contains("\n\t</Target>", raw);
+    }
+
+    [Fact]
+    public void Synthesised_file_output_stays_readable_without_namespace()
+    {
+        var target = Path.Combine(_dir, "Directory.Build.props");
+        Inject(Cfg(target));
+
+        var raw = File.ReadAllText(target);
+
+        Assert.DoesNotContain("xmlns=", raw);
+        Assert.Contains("<Project", raw);
+        Assert.Contains("\n  <UsingTask ", raw);
+        Assert.Contains("\n    <Task>", raw);
+        Assert.Contains("\n      <Code ", raw);
+        Assert.Contains("\n    </Task>", raw);
+        Assert.Contains("\n  </UsingTask>", raw);
+        Assert.Contains("\n  <Target ", raw);
+        AssertTargetInvocationIndented(raw, "  ", "    ");
+        Assert.Contains("\n  </Target>", raw);
+        Assert.Contains("\n</Project>", raw);
+    }
+
+    [Fact]
     public void Allows_repeated_injection()
     {
         var target = Path.Combine(_dir, "Already.csproj");
@@ -443,6 +522,18 @@ public class MSBuildTests : IDisposable
         Console.SetOut(new StringWriter());
         try { action(); }
         finally { Console.SetOut(oldOut); }
+    }
+
+    static void AssertTargetInvocationIndented(string raw, string targetIndent, string invocationIndent)
+    {
+        var targetStart = raw.IndexOf($"\n{targetIndent}<Target ", StringComparison.Ordinal);
+        Assert.NotEqual(-1, targetStart);
+
+        var targetEnd = raw.IndexOf($"\n{targetIndent}</Target>", targetStart, StringComparison.Ordinal);
+        Assert.NotEqual(-1, targetEnd);
+
+        var targetBlock = raw[targetStart..targetEnd];
+        Assert.Contains($"\n{invocationIndent}<", targetBlock);
     }
 
     static (int ExitCode, string Stdout, string Stderr) RunDotnetBuild(string projectPath)
